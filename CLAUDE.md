@@ -26,6 +26,7 @@ App de barra de menu (macOS, Swift/SwiftUI) com 5 abas: **Geral**, **AI** (uso d
 - `DockTiles.swift` — Stats no Dock como janelas minimizadas com tile próprio.
 - `SettingsView.swift` — Ajustes: iniciar com o Mac (`SMAppService`), Dock (substituir, tamanho dos ícones, aviso de Acessibilidade) e Stats (por ícone: orientação, intervalo, botão do Dock, largura no Dock e toggle; enum `Stat`).
 - `AISettingsView.swift` — Ajustes de AI (na aba AI): cola cookie do site, assinaturas (com ordem/número ▲▼), contas identificadas.
+- `Relogin.swift` — botão "Relogar" (card e cabeçalho da aba AI): abre o Terminal rodando `claude`, `CLAUDE_CONFIG_DIR=… claude` e `agent login` das assinaturas deslogadas.
 - `Logos.swift` — logos oficiais Claude/Cursor via path SVG + parser `SVGPath`.
 - `Models.swift` — `Provider`, `Subscription`, `Usage`, `Metric` (+ `MetricKind`), `UsageState`; escolha dos anéis e progresso do reset.
 - `Store.swift` — junta contas do Claude Code, Cursor e cookies na ordem de `subscriptionOrder` (define o número fixo); `subsByAvailability`; refresh no intervalo de Stats › AI (mín. 1 min).

@@ -20,6 +20,12 @@ struct AITab: View {
                 }
                 Spacer()
                 if !showSettings {
+                    let logged = store.subs.filter(Relogin.needsLogin)
+                    if !logged.isEmpty {
+                        Button { Relogin.run(logged) } label: { Label("Relogar (\(logged.count))", systemImage: "terminal") }
+                            .buttonStyle(.borderless).foregroundStyle(.orange)
+                            .help("Abre o Terminal rodando cada CLI deslogado")
+                    }
                     Button { showSettings = true } label: { Label("Ajustes de AI", systemImage: "slider.horizontal.3") }
                         .buttonStyle(.borderless)
                 }
@@ -270,8 +276,8 @@ struct SubscriptionCard: View {
             switch sub.state {
             case .loading: ProgressView().controlSize(.small)
             case .ok(let u): ForEach(u.metrics) { MetricView(metric: $0) }
-            case .expired: note(expiredText, .orange)
-            case .noCredentials: note(missingText, .secondary)
+            case .expired: note(expiredText, .orange); reloginButton
+            case .noCredentials: note(missingText, .secondary); reloginButton
             case .error(let msg): note(msg, .red)
             }
 
@@ -290,6 +296,13 @@ struct SubscriptionCard: View {
         VStack(alignment: .leading, spacing: 0) {
             Text(Tokens.format(n)).font(.caption.weight(.semibold).monospacedDigit())
             Text(title).font(.caption2).foregroundStyle(.secondary)
+        }
+    }
+
+    @ViewBuilder private var reloginButton: some View {
+        if Relogin.command(for: sub) != nil {
+            Button { Relogin.run([sub]) } label: { Label("Relogar no Terminal", systemImage: "terminal") }
+                .controlSize(.small)
         }
     }
 

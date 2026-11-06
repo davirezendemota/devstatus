@@ -186,8 +186,39 @@ final class DockBarController {
         windowGuard.barTop = { [weak self] in self?.barTopAX }
         observer = NotificationCenter.default.addObserver(forName: NSApplication.didChangeScreenParametersNotification,
                                                           object: nil, queue: .main) { [weak self] _ in
-            Task { @MainActor in self?.place() }
+            Task { @MainActor in self?.place(); self?.screensChanged() }
         }
+        wakeObserver = NSWorkspace.shared.notificationCenter.addObserver(forName: NSWorkspace.screensDidWakeNotification,
+                                                                         object: nil, queue: .main) { [weak self] _ in
+            Task { @MainActor in self?.screensChanged(force: true) }
+        }
+        screenSignature = Self.currentScreens()
+    }
+
+    private var wakeObserver: NSObjectProtocol?
+    private var screenSignature = ""
+    private var reassertWork: DispatchWorkItem?
+
+    private static func currentScreens() -> String {
+        NSScreen.screens.map { "\($0.deviceDescription[NSDeviceDescriptionKey("NSScreenNumber")] ?? "")@\($0.frame)" }
+            .joined(separator: ",")
+    }
+
+    /// Depois de mudar as telas (ou acordar), esconde de novo o Dock do macOS, que pode reaparecer.
+    /// Espera as telas assentarem e so age se a configuracao mudou, para nao reiniciar o Dock a toa.
+    private func screensChanged(force: Bool = false) {
+        guard DockBar.enabled else { return }
+        reassertWork?.cancel()
+        let work = DispatchWorkItem { [weak self] in
+            guard let self else { return }
+            let now = Self.currentScreens()
+            guard force || now != self.screenSignature else { return }
+            self.screenSignature = now
+            NativeDock.reassert()
+            self.place()
+        }
+        reassertWork = work
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.5, execute: work)
     }
 
     /// Videos abertos pelo Finder vao para o player do Dock (ou para a janela flutuante sem o Dock).

@@ -21,6 +21,15 @@ enum NativeDock {
         restartDock()
     }
 
+    /// Ao trocar de tela (cabo desconectado, tampa aberta) o macOS pode mostrar o Dock de novo
+    /// mesmo com o autohide ligado: reaplica as preferencias e reinicia o Dock.
+    static func reassert() {
+        guard isHiddenByUs else { return }
+        if get("autohide") as? Bool != true { set("autohide", true as CFPropertyList) }
+        if (get("autohide-delay") as? Double ?? 0) < 1000 { set("autohide-delay", 1000.0 as CFPropertyList) }
+        restartDock()
+    }
+
     static func restore() {
         guard let saved = UserDefaults.standard.dictionary(forKey: savedKey) else { return }
         set("autohide", (saved["autohide"] as? Bool ?? false) as CFPropertyList)

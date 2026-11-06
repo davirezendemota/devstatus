@@ -81,14 +81,15 @@ Hides the macOS Dock and draws its own, in groups: **apps** (pinned and running,
 
 ## Quick start
 
-### Download
-
-Each [release](https://github.com/davirezendemota/devstatus/releases/latest) has a universal `DevStatus.app` (Apple Silicon and Intel, macOS 13+) built by CI. It is ad-hoc signed and not notarized, so macOS blocks the first launch. After unzipping, move it to Applications and remove the quarantine flag:
+### Install
 
 ```bash
-xattr -dr com.apple.quarantine /Applications/DevStatus.app
-open /Applications/DevStatus.app
+curl -fsSL https://devstatus.davirezendemota.com/install.sh | bash
 ```
+
+The [script](https://devstatus.davirezendemota.com/install.sh) downloads the latest [release](https://github.com/davirezendemota/devstatus/releases/latest) (universal: Apple Silicon and Intel, macOS 13+), checks its SHA-256, installs `DevStatus.app` in `/Applications` (or `~/Applications`) and opens it. Run it again to update; `DEVSTATUS_VERSION=v0.1.0` installs a specific release.
+
+The app is ad-hoc signed and not notarized by Apple. A zip downloaded by a browser is quarantined and macOS blocks the first launch; `curl` doesn't quarantine files, so the script avoids that. To install the zip by hand instead, move the app to Applications and run `xattr -dr com.apple.quarantine /Applications/DevStatus.app`.
 
 macOS ties permissions (Accessibility, Automation, Keychain) to the signature, so after each update you may have to grant them again. Building from source with a stable signing identity avoids that.
 

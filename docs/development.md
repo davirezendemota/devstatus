@@ -10,7 +10,14 @@ Requisitos: Swift 5.9+ (testado com 6.4), macOS 13+. Sem projeto Xcode e sem dep
 Abra sempre com `open` (ou Spotlight). Rodar o binário direto (`DevStatus.app/Contents/MacOS/DevStatus`) faz o macOS checar as permissões do terminal, não as do DevStatus.
 
 ## CI e release
-`.github/workflows/build.yml` roda em `macos-15`: compila em todo push/PR na `main` (artefato `.zip` por 7 dias) e, quando uma release é publicada, gera o app universal com `DEVSTATUS_UNIVERSAL=1 ./build.sh`, confere as arquiteturas com `lipo` e anexa `DevStatus-<tag>-macos-universal.zip` e o `.sha256` à release. Para uma release já existente: Actions › Build › Run workflow, com a tag. O app do CI é assinado ad-hoc e não é notarizado (quem baixa precisa tirar a quarentena; ver README).
+`.github/workflows/build.yml` roda em `macos-15`: compila em todo push/PR na `main` (artefato `.zip` por 7 dias) e, quando uma release é publicada, gera o app universal com `DEVSTATUS_UNIVERSAL=1 ./build.sh`, confere as arquiteturas com `lipo` e anexa `DevStatus-<tag>-macos-universal.zip` e o `.sha256` à release. Para uma release já existente: Actions › Build › Run workflow, com a tag. Fora de PR, o CI assina com o certificado autoassinado das releases (abaixo) e falha se a assinatura não sair com ele; em PR (sem secrets) assina ad-hoc. O app não é notarizado: o `install.sh` do site baixa com `curl`, que não põe quarentena (ver README).
+
+### Certificado das releases
+- `DevStatus Release Signing`, autoassinado, RSA 3072, só Code Signing, válido até 2036. SHA-1 `D34B81470098E31DC94CFDEB255C4F5454430384`.
+- Requisito designado resultante: `identifier "local.devstatus" and certificate root = H"d34b81…"`. Igual em todas as versões, então o macOS mantém as permissões nas atualizações.
+- GitHub: secrets `DEVSTATUS_SIGNING_P12` (base64 do `.p12`) e `DEVSTATUS_SIGNING_P12_PASSWORD`, variável `DEVSTATUS_SIGN_IDENTITY` (SHA-1). O workflow importa num keychain temporário e o apaga no fim.
+- Backup: `.p12` em `~/.config/devstatus-signing/` (fora do git) e a senha no Keychain (`security find-generic-password -s devstatus-release-signing-p12 -w`). Perder o certificado obriga todos os usuários a liberar as permissões de novo; vazar a chave permite assinar um app que herda essas permissões. Nunca comitar.
+- `security find-identity -v` não lista certificado autoassinado (não confiável); por isso o `build.sh` busca sem `-v`. `DEVSTATUS_REQUIRE_SIGN=1` faz o build falhar em vez de cair em ad-hoc.
 
 ## Assinatura (permissões que sobrevivem ao rebuild)
 O `build.sh` assina com o certificado indicado em `.sign-identity` (hash SHA-1, fora do git) ou em `DEVSTATUS_SIGN_IDENTITY`; sem isso, ad-hoc.

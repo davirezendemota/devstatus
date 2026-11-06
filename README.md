@@ -91,7 +91,7 @@ The [script](https://devstatus.davirezendemota.com/install.sh) downloads the lat
 
 The app is ad-hoc signed and not notarized by Apple. A zip downloaded by a browser is quarantined and macOS blocks the first launch; `curl` doesn't quarantine files, so the script avoids that. To install the zip by hand instead, move the app to Applications and run `xattr -dr com.apple.quarantine /Applications/DevStatus.app`.
 
-macOS ties permissions (Accessibility, Automation, Keychain) to the signature, so after each update you may have to grant them again. Building from source with a stable signing identity avoids that.
+Releases are signed with a fixed self-signed certificate (`DevStatus Release Signing`, SHA-1 `D34B81470098E31DC94CFDEB255C4F5454430384`). macOS ties permissions (Accessibility, Automation, Keychain) to the signature, so they carry over from one release to the next. Releases signed before that certificate were ad-hoc, so the first update after them asks for permissions once more.
 
 ### Build from source
 

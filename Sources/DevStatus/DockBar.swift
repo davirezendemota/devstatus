@@ -300,22 +300,13 @@ struct DockBarView: View {
             if !herdr.agents.isEmpty {
                 group { HerdrQueueView(herdr: herdr, size: s) }
             }
-            if !widgets.isEmpty {
-                group {
-                    ForEach(widgets, id: \.self) { stat in
-                        Group {
-                            if stat == .ai {
-                                AIRingsView(store: store, size: s)   // aneis por assinatura
-                            } else {
-                                WidgetTileView(rows: StatRows.rows(stat, store: store, docker: docker, monitor: monitor),
-                                               icon: stat.icon, vertical: stat.vertical, units: stat.dockWidth, size: s)
-                            }
-                        }
-                            .onTapGesture { openTab(stat.tab) }
-                            .pointerCursor()
-                            .help("DevStatus · \(stat.rawValue)")
-                    }
-                }
+            // Assinaturas (aneis de AI) e Stats (Docker, Monitor) em grupos separados.
+            if aiOn {
+                group { statTile(.ai) }
+            }
+            let stats = widgets.filter { $0 != .ai }
+            if !stats.isEmpty {
+                group { ForEach(stats, id: \.self) { statTile($0) } }
             }
             if player.hasTrack {
                 group { NowPlayingView(player: player, size: s) }
@@ -331,6 +322,20 @@ struct DockBarView: View {
             loadURLs(providers) { urls in urls.filter { $0.pathExtension == "app" }.forEach { model.pin($0.standardizedFileURL.path) } }
             return true
         }
+    }
+
+    private func statTile(_ stat: Stat) -> some View {
+        Group {
+            if stat == .ai {
+                AIRingsView(store: store, size: s)   // aneis por assinatura
+            } else {
+                WidgetTileView(rows: StatRows.rows(stat, store: store, docker: docker, monitor: monitor),
+                               icon: stat.icon, vertical: stat.vertical, units: stat.dockWidth, size: s)
+            }
+        }
+        .onTapGesture { openTab(stat.tab) }
+        .pointerCursor()
+        .help("DevStatus · \(stat.rawValue)")
     }
 
     private func group<C: View>(@ViewBuilder _ content: () -> C) -> some View {

@@ -1,8 +1,8 @@
 <div align="center">
 
-  <h1>DevStatus</h1>
+  <img src="docs/assets/banner.jpg" alt="DevStatus — your dev machine, at a glance" width="100%" />
 
-  <p><strong>Your dev machine, at a glance.</strong></p>
+  <p><strong>Your dev machine, at a glance.</strong> For Mac users.</p>
 
   <p>
     AI usage, Docker storage, system health, coding agents and a Dock of your own — from the macOS menu bar.

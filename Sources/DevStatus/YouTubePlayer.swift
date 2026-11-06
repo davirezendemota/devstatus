@@ -669,7 +669,7 @@ struct YouTubePlayerView: View {
                     Image(systemName: "pip").font(.system(size: size * 0.26)).foregroundStyle(.white.opacity(0.5))
                         .frame(maxWidth: .infinity, maxHeight: .infinity).background(.black.opacity(0.35))
                 } else if let wv = youtube.webView {
-                    WebViewHost(webView: wv, onAttach: youtube.repaint)
+                    WebViewHost(webView: wv, owns: { [youtube] in !youtube.floating }, onAttach: youtube.repaint)
                 } else {
                     Color.black
                 }
@@ -801,7 +801,7 @@ struct FloatingPlayerView: View {
 
     var body: some View {
         ZStack {
-            if youtube.floating, let wv = youtube.webView { WebViewHost(webView: wv, onAttach: youtube.repaint) } else { Color.black }
+            if youtube.floating, let wv = youtube.webView { WebViewHost(webView: wv, owns: { [youtube] in youtube.floating }, onAttach: youtube.repaint) } else { Color.black }
             Color.black.opacity(hover ? 0.3 : 0.001)
                 .contentShape(Rectangle())
                 .onTapGesture { youtube.togglePlay() }
@@ -864,23 +864,43 @@ struct FloatingPlayerView: View {
 }
 
 /// Hospeda o WKWebView do player sem deixar ele receber cliques (os controles sao do card).
+/// Card e janela flutuante tem cada um o seu host; so adota o web view o host que e o dono
+/// atual (`owns`) e ja esta numa janela. Sem isso, ao trocar, o host que esta saindo podia
+/// pegar o web view de volta e ser descartado com ele dentro: o video ficava fora de qualquer
+/// janela e preto nos dois lugares.
 private struct WebViewHost: NSViewRepresentable {
     let webView: WKWebView
+    let owns: () -> Bool
     var onAttach: () -> Void = {}
 
     func makeNSView(context: Context) -> Container { Container() }
 
     func updateNSView(_ v: Container, context: Context) {
-        if webView.superview !== v {
-            webView.removeFromSuperview()
-            webView.frame = v.bounds
-            webView.autoresizingMask = [.width, .height]
-            v.addSubview(webView)
-            onAttach()
-        }
+        v.webView = webView
+        v.owns = owns
+        v.onAttach = onAttach
+        v.adopt()
     }
 
     final class Container: NSView {
+        var webView: WKWebView?
+        var owns: () -> Bool = { false }
+        var onAttach: () -> Void = {}
+
         override func hitTest(_ point: NSPoint) -> NSView? { nil }
+
+        override func viewDidMoveToWindow() {
+            super.viewDidMoveToWindow()
+            adopt()
+        }
+
+        func adopt() {
+            guard let wv = webView, window != nil, owns(), wv.superview !== self else { return }
+            wv.removeFromSuperview()
+            wv.frame = bounds
+            wv.autoresizingMask = [.width, .height]
+            addSubview(wv)
+            onAttach()
+        }
     }
 }

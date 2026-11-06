@@ -253,8 +253,7 @@ final class YouTubePlayer: NSObject, ObservableObject {
     }
 
     /// Ao mudar o video de janela (card <-> flutuante) ou redimensionar, a camada do video pode
-    /// ficar preta: forca novo layout e, se estiver pausado ou so com audio (videoWidth 0),
-    /// recarrega o quadro com um seek no mesmo ponto.
+    /// ficar preta: forca novo layout e recarrega o quadro com um seek no mesmo ponto.
     func repaint() {
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) { [weak self] in
             guard let wv = self?.webView, let sv = wv.superview else { return }
@@ -263,9 +262,12 @@ final class YouTubePlayer: NSObject, ObservableObject {
             self?.js("var v=document.querySelector('video');if(v){v.style.visibility='hidden';"
                      + "requestAnimationFrame(function(){v.style.visibility=''})}")
         }
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) { [weak self] in
-            self?.js("var p=document.getElementById('movie_player');var v=document.querySelector('video');"
-                     + "if(v&&(v.paused||v.videoWidth===0)){if(p&&p.seekTo)p.seekTo(v.currentTime,true);else v.currentTime=v.currentTime}")
+        // Ao trocar de janela o WebKit descarta a camada do video e so volta a desenhar
+        // depois de um seek (mesmo tocando). Recua um pouco para o seek nao ser ignorado.
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) { [weak self] in
+            self?.js("var v=document.querySelector('video');if(v&&v.readyState>0){var t=Math.max(0,v.currentTime-0.05);"
+                     + "var p=document.getElementById('movie_player');"
+                     + "if(p&&p.seekTo&&!(p.classList&&p.classList.contains('ad-showing')))p.seekTo(t,true);else v.currentTime=t}")
         }
     }
 

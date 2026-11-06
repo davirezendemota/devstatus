@@ -45,6 +45,8 @@ final class NowPlaying: ObservableObject {
     }
 
     static let bundleID = "com.spotify.client"
+    static let appIcon: NSImage? = NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleID)
+        .map { NSWorkspace.shared.icon(forFile: $0.path) }
     private var isRunning: Bool { !NSRunningApplication.runningApplications(withBundleIdentifier: Self.bundleID).isEmpty }
 
     var progress: Double { duration > 0 ? min(position / duration, 1) : 0 }
@@ -122,14 +124,18 @@ final class NowPlaying: ObservableObject {
     }
 
     /// Cor media da capa, escurecida, para o fundo do player.
-    private static func averageColor(_ img: NSImage) -> Color {
-        guard let cg = img.cgImage(forProposedRect: nil, context: nil, hints: nil) else { return Color(white: 0.25) }
+    private static func averageColor(_ img: NSImage) -> Color { averageColor(img, fallback: nil) ?? Color(white: 0.25) }
+
+    /// Cor media escurecida; nil se a imagem falhar ou for quase preta (ex.: video ainda carregando).
+    static func averageColor(_ img: NSImage, fallback: Color?) -> Color? {
+        guard let cg = img.cgImage(forProposedRect: nil, context: nil, hints: nil) else { return fallback }
         var px = [UInt8](repeating: 0, count: 4)
         guard let ctx = CGContext(data: &px, width: 1, height: 1, bitsPerComponent: 8, bytesPerRow: 4,
                                   space: CGColorSpaceCreateDeviceRGB(),
-                                  bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue) else { return Color(white: 0.25) }
+                                  bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue) else { return fallback }
         ctx.interpolationQuality = .medium
         ctx.draw(cg, in: CGRect(x: 0, y: 0, width: 1, height: 1))
+        if Int(px[0]) + Int(px[1]) + Int(px[2]) < 30 { return fallback }
         return Color(red: Double(px[0]) / 255 * 0.75, green: Double(px[1]) / 255 * 0.75, blue: Double(px[2]) / 255 * 0.75)
     }
 }

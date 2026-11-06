@@ -19,6 +19,15 @@ cat > "$APP/Contents/Info.plist" <<P
   <key>CFBundleShortVersionString</key><string>0.1</string>
   <key>LSMinimumSystemVersion</key><string>13.0</string>
   <key>LSUIElement</key><true/>
+  <key>CFBundleDocumentTypes</key><array><dict>
+    <key>CFBundleTypeName</key><string>Vídeo</string>
+    <key>CFBundleTypeRole</key><string>Viewer</string>
+    <key>LSHandlerRank</key><string>Alternate</string>
+    <key>LSItemContentTypes</key><array>
+      <string>public.mpeg-4</string><string>com.apple.quicktime-movie</string>
+      <string>com.apple.m4v-video</string><string>org.webmproject.webm</string>
+    </array>
+  </dict></array>
   <key>NSAppleEventsUsageDescription</key><string>Mostrar a música do Spotify no Dock do DevStatus e controlar play, pausa e faixa.</string>
 </dict></plist>
 P

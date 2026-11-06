@@ -19,6 +19,7 @@ App de barra de menu (macOS, Swift/SwiftUI) com 5 abas: **Geral**, **AI** (uso d
 - `DockBar.swift` / `NativeDock.swift` — Dock próprio que substitui o do macOS (apps, Lixo, widgets largos de Stats); esconde/restaura o Dock nativo.
 - `NowPlaying.swift` — música do Spotify no grupo Mac do Dock (notificação distribuída + AppleScript).
 - `WindowGuard.swift` — Acessibilidade: impede janelas de ficarem atrás da barra do Dock.
+- `YouTubePlayer.swift` — player do Dock: YouTube (link colado → WKWebView com só o vídeo, controles pela API do player), vídeos locais ("Abrir com › DevStatus"), fila e janela flutuante própria e `MediaCardView` (card único Spotify/YouTube com seletor à esquerda).
 - `ProcessCPU.swift` — CPU por app (processo + descendentes) para a cor da barrinha no Dock.
 - `Herdr.swift` — fila de agents do Herdr no Dock (status working/blocked/done/idle).
 - `Devices.swift` — baterias do Mac e dos acessórios no Dock (`pmset -g accps`, igual ao widget Baterias), em anéis.
@@ -40,7 +41,7 @@ App de barra de menu (macOS, Swift/SwiftUI) com 5 abas: **Geral**, **AI** (uso d
 - Swift tools 5.9, alvo macOS 13+. Sem dependências externas; sem Xcode project (só SwiftPM + `build.sh`).
 - **Nunca logar, imprimir ou persistir tokens.** O token é lido do Keychain, usado na requisição e descartado.
 - **Não renovar tokens OAuth.** O refresh rotaciona o refresh token e pode deslogar o Claude Code. Se expirou, o app só avisa.
-- Rede: só `api.anthropic.com`, `claude.ai`, `cursor.com` e `i.scdn.co` (capa da música do Spotify no Dock). Docker: só o CLI local.
+- Rede: só `api.anthropic.com`, `claude.ai`, `cursor.com` e `i.scdn.co` (capa da música do Spotify no Dock). Exceção: o WKWebView do player do YouTube acessa o YouTube (e as CDNs que a página usa), só com o link que o usuário colou. Login do YouTube só pela janela de login do Google no próprio WebKit do app; nunca ler cookies do Safari/Chrome nem ler ou exibir os cookies da sessão. Docker: só o CLI local.
 - Herdr: só leitura via CLI local `herdr-core events --json` (primeira linha, a cada 3 s com o Dock ligado; `ls --json` não traz `herdr.seen`). Nunca enviar comandos, prompts ou teclas para agents.
 - Apple Events (AppleScript): só para o Spotify (estado, capa, play/pausa/faixa). Chave `NSAppleEventsUsageDescription` no `build.sh`.
 - **Dock nativo**: só esconder via `NativeDock` (salva e restaura os valores originais). Nunca apagar `persistent-apps` nem outras chaves do `com.apple.dock`.

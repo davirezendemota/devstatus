@@ -104,7 +104,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         let event = NSAppleEventManager.shared().currentAppleEvent
         let isLoginItem = event?.eventID == kAEOpenApplication &&
             event?.paramDescriptor(forKeyword: keyAEPropData)?.enumCodeValue == keyAELaunchedAsLogInItem
-        if !isLoginItem { showModal() }
+        // Aberto com um video ("Abrir com"): vai direto para o player, sem o modal.
+        let isOpenFiles = event?.eventID == kAEOpenDocuments
+        if !isLoginItem && !isOpenFiles { showModal() }
+    }
+
+    /// "Abrir com › DevStatus" em videos do Finder.
+    func application(_ application: NSApplication, open urls: [URL]) {
+        dockBar.openFiles(urls)
     }
 
     /// Aplica as preferencias de Stats (ligado/desligado e intervalos) quando mudam.

@@ -167,6 +167,7 @@ final class DockModel: ObservableObject {
 final class DockBarController {
     private let model = DockModel()
     private lazy var player = NowPlaying()
+    private let youtube = YouTubePlayer()
     private let herdr = HerdrStore()
     private let devices = DevicesStore()
     let windowGuard = WindowGuard()
@@ -189,6 +190,11 @@ final class DockBarController {
         }
     }
 
+    /// Videos abertos pelo Finder vao para o player do Dock (ou para a janela flutuante sem o Dock).
+    func openFiles(_ urls: [URL]) {
+        youtube.openFiles(urls, floating: !DockBar.enabled)
+    }
+
     func sync() {
         if DockBar.enabled {
             show()
@@ -203,6 +209,7 @@ final class DockBarController {
             model.setSampling(false)
             herdr.setPolling(false)
             devices.setPolling(false)
+            youtube.close()
             NativeDock.restore()
         }
     }
@@ -211,7 +218,7 @@ final class DockBarController {
         BackgroundCursor.enable()
         if panel == nil {
             let view = DockBarView(model: model, store: store, docker: docker, monitor: monitor,
-                                   player: player, herdr: herdr, devices: devices, openTab: openTab)
+                                   player: player, youtube: youtube, herdr: herdr, devices: devices, openTab: openTab)
             let p = NSPanel(contentRect: NSRect(x: 0, y: 0, width: 400, height: 80),
                             styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: false)
             // O NSHostingView ajusta o tamanho da janela ao conteudo; a cada mudanca recentralizamos.
@@ -266,6 +273,7 @@ struct DockBarView: View {
     @ObservedObject var docker: DockerStore
     @ObservedObject var monitor: MonitorStore
     @ObservedObject var player: NowPlaying
+    @ObservedObject var youtube: YouTubePlayer
     @ObservedObject var herdr: HerdrStore
     @ObservedObject var devices: DevicesStore
     let openTab: (AppTab) -> Void
@@ -308,11 +316,21 @@ struct DockBarView: View {
             if !stats.isEmpty {
                 group { ForEach(stats, id: \.self) { statTile($0) } }
             }
-            if player.hasTrack {
-                group { NowPlayingView(player: player, size: s) }
+            if player.hasTrack || youtube.active {
+                group { MediaCardView(player: player, youtube: youtube, size: s) }
             }
             if !devices.devices.isEmpty {
                 group { DevicesView(devices: devices, size: s) }
+            }
+        }
+        // Botao direito na barra (fora dos icones de app, que tem menu proprio).
+        .contextMenu {
+            Button(youtube.active ? "Adicionar vídeo do YouTube…" : "Tocar vídeo do YouTube…") { youtube.ask() }
+            if youtube.active { Button("Fechar player do YouTube") { youtube.close() } }
+            if youtube.loggedIn {
+                Button("Sair do YouTube") { youtube.logout() }
+            } else {
+                Button("Entrar no YouTube…") { youtube.login() }
             }
         }
         .padding(.top, s * 0.3)   // espaco para o zoom ao passar o mouse

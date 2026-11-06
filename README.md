@@ -81,6 +81,19 @@ Hides the macOS Dock and draws its own, in groups: **apps** (pinned and running,
 
 ## Quick start
 
+### Download
+
+Each [release](https://github.com/davirezendemota/devstatus/releases/latest) has a universal `DevStatus.app` (Apple Silicon and Intel, macOS 13+) built by CI. It is ad-hoc signed and not notarized, so macOS blocks the first launch. After unzipping, move it to Applications and remove the quarantine flag:
+
+```bash
+xattr -dr com.apple.quarantine /Applications/DevStatus.app
+open /Applications/DevStatus.app
+```
+
+macOS ties permissions (Accessibility, Automation, Keychain) to the signature, so after each update you may have to grant them again. Building from source with a stable signing identity avoids that.
+
+### Build from source
+
 Requirements: macOS 13+, Swift 5.9+ (Xcode or Command Line Tools). No Xcode project, no package dependencies.
 
 ```bash

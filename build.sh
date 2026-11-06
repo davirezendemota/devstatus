@@ -2,11 +2,18 @@
 # Compila e empacota DevStatus.app (app de barra de menu, sem Dock).
 set -euo pipefail
 cd "$(dirname "$0")"
-swift build -c release
+# DEVSTATUS_UNIVERSAL=1 gera binario universal (arm64 + x86_64), usado pelo CI da release.
+if [ "${DEVSTATUS_UNIVERSAL:-}" = 1 ]; then
+  swift build -c release --arch arm64 --arch x86_64
+  BIN="$(swift build -c release --arch arm64 --arch x86_64 --show-bin-path)/DevStatus"
+else
+  swift build -c release
+  BIN=.build/release/DevStatus
+fi
 APP=DevStatus.app
 rm -rf "$APP"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
-cp .build/release/DevStatus "$APP/Contents/MacOS/DevStatus"
+cp "$BIN" "$APP/Contents/MacOS/DevStatus"
 cp Assets/AppIcon.icns "$APP/Contents/Resources/AppIcon.icns"
 cat > "$APP/Contents/Info.plist" <<P
 <?xml version="1.0" encoding="UTF-8"?>

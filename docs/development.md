@@ -9,6 +9,9 @@ Requisitos: Swift 5.9+ (testado com 6.4), macOS 13+. Sem projeto Xcode e sem dep
 
 Abra sempre com `open` (ou Spotlight). Rodar o binário direto (`DevStatus.app/Contents/MacOS/DevStatus`) faz o macOS checar as permissões do terminal, não as do DevStatus.
 
+## CI e release
+`.github/workflows/build.yml` roda em `macos-15`: compila em todo push/PR na `main` (artefato `.zip` por 7 dias) e, quando uma release é publicada, gera o app universal com `DEVSTATUS_UNIVERSAL=1 ./build.sh`, confere as arquiteturas com `lipo` e anexa `DevStatus-<tag>-macos-universal.zip` e o `.sha256` à release. Para uma release já existente: Actions › Build › Run workflow, com a tag. O app do CI é assinado ad-hoc e não é notarizado (quem baixa precisa tirar a quarentena; ver README).
+
 ## Assinatura (permissões que sobrevivem ao rebuild)
 O `build.sh` assina com o certificado indicado em `.sign-identity` (hash SHA-1, fora do git) ou em `DEVSTATUS_SIGN_IDENTITY`; sem isso, ad-hoc.
 ```

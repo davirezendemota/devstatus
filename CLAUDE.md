@@ -7,6 +7,7 @@ App de barra de menu (macOS, Swift/SwiftUI) com 5 abas: **Geral**, **AI** (uso d
 - `open DevStatus.app` — executa. Para recarregar após build: `pkill DevStatus; open DevStatus.app`.
 - `swift build` — só compila, sem empacotar.
 - `DEVSTATUS_UNIVERSAL=1 ./build.sh` — binário universal (arm64 + x86_64); usado pelo CI. O Swift 6.4 com SDK do macOS 27 só gera arm64, então o universal sai do runner do GitHub.
+- CI (`.github/workflows/build.yml`): compila em todo push/PR na `main`; numa release publicada (ou `workflow_dispatch` com a tag) anexa `DevStatus-<tag>-macos-universal.zip` + `.sha256`, assinado ad-hoc.
 
 ## Estrutura
 - `App.swift` — ícones opcionais de Stats (AI, Docker, Monitor) que abrem focados na aba; `AppDelegate` abre o modal (`NSPanel`) quando o app é aberto pelo Spotlight; `Migration` das preferências do nome antigo.

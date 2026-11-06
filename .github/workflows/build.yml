@@ -1,0 +1,62 @@
+name: Build
+
+# Compila o app em todo push/PR na main. Numa release publicada (ou rodando a mao com uma tag),
+# gera o DevStatus.app universal, compacta e anexa a release.
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Tag da release que recebe o app (ex.: v0.1.0)"
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: macos-15
+    env:
+      TAG: ${{ github.event.release.tag_name || inputs.tag }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.TAG || github.sha }}
+
+      - name: Swift version
+        run: swift --version
+
+      - name: Build DevStatus.app (universal, ad-hoc signed)
+        run: DEVSTATUS_UNIVERSAL=1 ./build.sh
+
+      - name: Check architectures
+        run: |
+          archs="$(lipo -archs DevStatus.app/Contents/MacOS/DevStatus)"
+          echo "Architectures: $archs"
+          [[ "$archs" == *arm64* && "$archs" == *x86_64* ]]
+
+      - name: Package
+        run: |
+          ZIP="DevStatus-${TAG:-dev}-macos-universal.zip"
+          ditto -c -k --sequesterRsrc --keepParent DevStatus.app "$ZIP"
+          shasum -a 256 "$ZIP" > "$ZIP.sha256"
+          echo "ZIP=$ZIP" >> "$GITHUB_ENV"
+
+      - name: Attach to release
+        if: env.TAG != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release upload "$TAG" "$ZIP" "$ZIP.sha256" --clobber
+
+      - name: Upload build artifact
+        if: env.TAG == ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: DevStatus-dev-macos-universal
+          path: ${{ env.ZIP }}
+          retention-days: 7

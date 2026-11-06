@@ -171,6 +171,10 @@ Stack: **Swift 5.9**, **SwiftUI** + **AppKit**, **IOKit**, **ServiceManagement**
 
 Under active development for personal use, on one Mac. Undocumented APIs (HID temperature sensors, `SetsCursorInBackground`) and undocumented endpoints (Claude usage) may break with macOS or service updates.
 
+## License
+
+[MIT](LICENSE) © 2026 Davi Rezende
+
 ---
 
 <p align="center">
@@ -184,4 +188,6 @@ Under active development for personal use, on one Mac. Undocumented APIs (HID te
   <a href="docs/architecture.md">Architecture</a>
   ·
   <a href="docs/roadmap.md">Roadmap</a>
+  ·
+  <a href="LICENSE">MIT License</a>
 </p>

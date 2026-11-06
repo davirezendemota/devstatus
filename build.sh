@@ -50,6 +50,8 @@ if [ -n "$IDENTITY" ] && security find-identity -p codesigning | grep -q "$IDENT
   codesign --force --sign "$IDENTITY" "$APP" >/dev/null
   echo "Assinado com certificado."
 else
+  # DEVSTATUS_REQUIRE_SIGN=1 (CI da release): sem o certificado, falha em vez de cair em ad-hoc.
+  if [ "${DEVSTATUS_REQUIRE_SIGN:-}" = 1 ]; then echo "Certificado não encontrado: ${IDENTITY:-<vazio>}" >&2; exit 1; fi
   codesign --force --sign - "$APP" >/dev/null
   echo "Assinado ad-hoc."
 fi

@@ -45,7 +45,8 @@ P
 # (Acessibilidade, Automacao, Keychain) entre builds.
 IDENTITY="${DEVSTATUS_SIGN_IDENTITY:-}"
 [ -z "$IDENTITY" ] && [ -f .sign-identity ] && IDENTITY="$(tr -d '[:space:]' < .sign-identity)"
-if [ -n "$IDENTITY" ] && security find-identity -v -p codesigning | grep -q "$IDENTITY"; then
+# Sem -v: certificado autoassinado (o das releases) aparece como "não confiável" e o -v o esconderia.
+if [ -n "$IDENTITY" ] && security find-identity -p codesigning | grep -q "$IDENTITY"; then
   codesign --force --sign "$IDENTITY" "$APP" >/dev/null
   echo "Assinado com certificado."
 else

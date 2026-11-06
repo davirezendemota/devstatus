@@ -5,8 +5,9 @@ cd "$(dirname "$0")"
 swift build -c release
 APP=DevStatus.app
 rm -rf "$APP"
-mkdir -p "$APP/Contents/MacOS"
+mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 cp .build/release/DevStatus "$APP/Contents/MacOS/DevStatus"
+cp Assets/AppIcon.icns "$APP/Contents/Resources/AppIcon.icns"
 cat > "$APP/Contents/Info.plist" <<P
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -14,6 +15,7 @@ cat > "$APP/Contents/Info.plist" <<P
   <key>CFBundleName</key><string>DevStatus</string>
   <key>CFBundleIdentifier</key><string>local.devstatus</string>
   <key>CFBundleExecutable</key><string>DevStatus</string>
+  <key>CFBundleIconFile</key><string>AppIcon</string>
   <key>CFBundlePackageType</key><string>APPL</string>
   <key>CFBundleVersion</key><string>1</string>
   <key>CFBundleShortVersionString</key><string>0.1</string>

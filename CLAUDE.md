@@ -35,6 +35,7 @@ App de barra de menu (macOS, Swift/SwiftUI) com 5 abas: **Geral**, **AI** (uso d
 - `ClaudeService.swift` — contas do Claude Code, Keychain, API OAuth.
 - `WebServices.swift` — uso via cookie: claude.ai e cursor.com.
 - `CookieStore.swift` — cookies no Keychain (`local.devstatus.cookies`), metadados no UserDefaults.
+- `Assets/AppIcon.svg` / `AppIcon.icns` — ícone do app (o mesmo do site); o `build.sh` copia o `.icns` para `Contents/Resources`.
 - `README.md` — visão geral. `docs/architecture.md` (fontes, APIs, decisões), `docs/development.md` (build, assinatura, testes), `docs/roadmap.md`.
 
 ## Regras e cuidados

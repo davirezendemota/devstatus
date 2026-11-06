@@ -2,3 +2,4 @@
 DevStatus.app/
 .sign-identity
 .local/
+.DS_Store

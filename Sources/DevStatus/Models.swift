@@ -105,19 +105,19 @@ extension Subscription {
     }
     private func metric(_ kind: MetricKind) -> Metric? { metrics.first { $0.kind == kind } }
 
-    /// Anel externo: Claude = limite semanal; Cursor = Auto + Composer (senao o total do plano).
+    /// Anel externo: Claude = sessao de 5h (senao a semana); Cursor = modelos de terceiros (senao Auto + Composer).
     var outerRing: Metric? {
         switch provider {
-        case .claude: return metric(.week) ?? metrics.first
-        case .cursor: return metric(.composer) ?? metric(.plan) ?? metrics.first
+        case .claude: return metric(.session) ?? metric(.week) ?? metrics.first
+        case .cursor: return metric(.thirdParty) ?? metric(.composer) ?? metric(.plan) ?? metrics.first
         }
     }
 
-    /// Anel interno: Claude = sessao de 5h; Cursor = modelos de terceiros.
+    /// Anel interno: Claude = limite semanal; Cursor = Auto + Composer. So existe junto com o externo.
     var innerRing: Metric? {
         switch provider {
-        case .claude: return metric(.session)
-        case .cursor: return metric(.thirdParty)
+        case .claude: return metric(.session) != nil ? metric(.week) : nil
+        case .cursor: return metric(.thirdParty) != nil ? (metric(.composer) ?? metric(.plan)) : nil
         }
     }
 

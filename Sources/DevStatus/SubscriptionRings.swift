@@ -2,8 +2,8 @@ import SwiftUI
 import AppKit
 
 /// Card de AI no Dock, no estilo do widget de baterias: um par de aneis por assinatura.
-/// Anel externo: Claude = semana, Cursor = Auto + Composer. Anel interno: Claude = sessao de 5h,
-/// Cursor = modelos de terceiros. No centro, o logo vai sendo preenchido de cima para baixo
+/// Anel externo: Claude = sessao de 5h, Cursor = modelos de terceiros. Anel interno: Claude = semana,
+/// Cursor = Auto + Composer. No centro, o logo vai sendo preenchido de cima para baixo
 /// conforme o tempo passa ate o proximo reset (Claude: 5h; Cursor: ciclo mensal).
 struct AIRingsView: View {
     @ObservedObject var store: Store
@@ -80,11 +80,11 @@ struct SubscriptionRing: View {
         }
         switch sub.provider {
         case .claude:
-            describe(sub.outerRing, "Semana (anel externo)")
-            describe(sub.innerRing, "Sessão 5h (anel interno)")
+            describe(sub.outerRing, "Sessão 5h (anel externo)")
+            describe(sub.innerRing, "Semana (anel interno)")
         case .cursor:
-            describe(sub.outerRing, "Auto + Composer (anel externo)")
-            describe(sub.innerRing, "Modelos de terceiros (anel interno)")
+            describe(sub.outerRing, "Modelos de terceiros (anel externo)")
+            describe(sub.innerRing, "Auto + Composer (anel interno)")
             if let r = sub.resetMetric?.resetsAt {
                 lines.append("Ciclo mensal reseta \(r.formatted(.relative(presentation: .named)))")
             }

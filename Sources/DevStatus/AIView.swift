@@ -33,6 +33,7 @@ struct AITab: View {
             } else {
                 ScrollView {
                     VStack(spacing: 10) {
+                        ApiCostCard()
                         HeatmapCard(daily: Tokens.merge(Array(store.tokens.values)))
                         ForEach(Array(store.subs.enumerated()), id: \.element.id) { i, sub in
                             SubscriptionCard(number: i + 1, sub: sub, daily: store.tokens[sub.id])
@@ -68,6 +69,79 @@ struct NumberBadge: View {
             .font(.system(size: 10, weight: .bold).monospacedDigit())
             .frame(width: 16, height: 16)
             .background(Color.primary.opacity(0.12), in: RoundedRectangle(cornerRadius: 4))
+    }
+}
+
+// MARK: Custo equivalente na API
+
+struct ApiCostCard: View {
+    @EnvironmentObject var store: Store
+
+    private struct Row: Identifiable {
+        let id: String, number: Int, sub: Subscription
+        let month: Double?, week: Double?, total: Double?
+        let cycle: Bool   // Cursor: so existe o valor do ciclo
+    }
+
+    private var rows: [Row] {
+        let cal = Calendar.current
+        let m = cal.dateInterval(of: .month, for: Date())!.start
+        let w = cal.dateInterval(of: .weekOfYear, for: Date())!.start
+        return store.subs.enumerated().compactMap { i, sub in
+            if let c = store.costs[sub.id] {
+                return Row(id: sub.id, number: i + 1, sub: sub, month: Tokens.cost(c, from: m),
+                           week: Tokens.cost(c, from: w), total: c.values.reduce(0, +), cycle: false)
+            }
+            if case .ok(let u) = sub.state, let v = u.apiCostUSD {
+                return Row(id: sub.id, number: i + 1, sub: sub, month: v, week: nil, total: nil, cycle: true)
+            }
+            return nil
+        }
+    }
+
+    var body: some View {
+        let rows = rows
+        Card {
+            HStack(alignment: .firstTextBaseline, spacing: 12) {
+                Text("Custo se fosse via API").font(.caption.weight(.semibold))
+                Spacer()
+                head("mês"); head("semana"); head("3 meses")
+            }
+            ForEach(rows) { r in
+                HStack(spacing: 6) {
+                    NumberBadge(number: r.number)
+                    ProviderLogo(provider: r.sub.provider).frame(width: 12, height: 12)
+                    Text(r.sub.title).font(.caption).lineLimit(1).truncationMode(.middle)
+                    Spacer()
+                    cell(r.month, note: r.cycle ? "ciclo" : nil); cell(r.week); cell(r.total)
+                }
+            }
+            HStack {
+                Text("Total").font(.caption.weight(.semibold))
+                Spacer()
+                cell(rows.compactMap(\.month).reduce(0, +), bold: true)
+                cell(rows.compactMap(\.week).reduce(0, +), bold: true)
+                cell(rows.compactMap(\.total).reduce(0, +), bold: true)
+            }
+            Text("Claude Code: logs locais com preços de tabela da API. Cursor: gasto do ciclo atual informado pelo site.")
+                .font(.system(size: 9)).foregroundStyle(.secondary)
+        }
+    }
+
+    private func head(_ t: String) -> some View {
+        Text(t).font(.caption2).foregroundStyle(.secondary).frame(width: 64, alignment: .trailing)
+    }
+
+    private func cell(_ v: Double?, note: String? = nil, bold: Bool = false) -> some View {
+        Group {
+            if let v {
+                VStack(alignment: .trailing, spacing: 0) {
+                    Text(Tokens.usd(v)).font(.caption.monospacedDigit().weight(bold ? .semibold : .regular))
+                    if let note { Text(note).font(.system(size: 8)).foregroundStyle(.secondary) }
+                }
+            } else { Text("–").font(.caption).foregroundStyle(.secondary) }
+        }
+        .frame(width: 64, alignment: .trailing)
     }
 }
 

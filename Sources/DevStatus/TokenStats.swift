@@ -2,6 +2,30 @@ import Foundation
 
 /// Tokens por dia (inicio do dia local -> total).
 typealias DailyTokens = [Date: Int]
+/// Custo diario em USD se o mesmo uso fosse cobrado pela API (precos de tabela).
+typealias DailyCost = [Date: Double]
+
+/// Precos da API em USD por 1M de tokens. Escrita de cache = 1,25x a entrada; leitura de cache = 0,1x
+/// (exceto Opus 5.5 e Sonnet 5.5, que cobram US$ 0,20). Modelos desconhecidos usam o preco do Opus 5.5.
+struct ModelPrice {
+    let input: Double, output: Double, cacheRead: Double
+    var cacheWrite: Double { input * 1.25 }
+
+    static func forModel(_ m: String) -> ModelPrice {
+        switch true {
+        case m.contains("fable"), m.contains("mythos"): return .init(input: 10, output: 50, cacheRead: 1)
+        case m.contains("opus-5-5"): return .init(input: 4, output: 20, cacheRead: 0.2)
+        case m.contains("opus-4-1"), m.contains("opus-4-0"), m == "claude-opus-4": return .init(input: 15, output: 75, cacheRead: 1.5)
+        case m.contains("opus"): return .init(input: 5, output: 25, cacheRead: 0.5)
+        case m.contains("sonnet-5"): return .init(input: 2, output: 10, cacheRead: 0.2)
+        case m.contains("sonnet"): return .init(input: 3, output: 15, cacheRead: 0.3)
+        case m.contains("haiku-5"): return .init(input: 0.1, output: 0.5, cacheRead: 0.01)
+        case m.contains("haiku-4"): return .init(input: 1, output: 5, cacheRead: 0.1)
+        case m.contains("haiku"): return .init(input: 0.8, output: 4, cacheRead: 0.08)
+        default: return .init(input: 4, output: 20, cacheRead: 0.2)
+        }
+    }
+}
 
 /// Le o uso de tokens dos logs locais do Claude Code (<configDir>/projects/**/*.jsonl).
 /// Total = input + output + cache creation + cache read, como o ccusage.
@@ -10,25 +34,29 @@ actor TokenScanner {
     static let shared = TokenScanner()
     static let days = 95
 
-    private struct Entry { let key: String; let day: Date; let tokens: Int }
+    private struct Entry { let key: String; let day: Date; let tokens: Int; let cost: Double }
     private struct Cached { let mtime: Date; let size: Int; let entries: [Entry] }
     private var cache: [String: Cached] = [:]
 
     /// Devolve os tokens diarios por conta (chave = id da assinatura).
-    func scan(_ accounts: [(id: String, dir: URL)]) -> [String: DailyTokens] {
+    func scan(_ accounts: [(id: String, dir: URL)]) -> (tokens: [String: DailyTokens], costs: [String: DailyCost]) {
         let since = Calendar.current.date(byAdding: .day, value: -Self.days, to: Calendar.current.startOfDay(for: Date()))!
         var result: [String: DailyTokens] = [:]
+        var costs: [String: DailyCost] = [:]
         for acc in accounts {
             var seen = Set<String>()
             var daily = DailyTokens()
+            var cost = DailyCost()
             for file in files(in: acc.dir.appendingPathComponent("projects"), since: since) {
                 for e in entries(file) where e.day >= since && seen.insert(e.key).inserted {
                     daily[e.day, default: 0] += e.tokens
+                    cost[e.day, default: 0] += e.cost
                 }
             }
             result[acc.id] = daily
+            costs[acc.id] = cost
         }
-        return result
+        return (result, costs)
     }
 
     private func files(in dir: URL, since: Date) -> [URL] {
@@ -59,12 +87,16 @@ actor TokenScanner {
                       let u = msg["usage"] as? [String: Any],
                       let ts = d["timestamp"] as? String,
                       let date = iso.date(from: ts) ?? ISO8601DateFormatter().date(from: ts) else { continue }
-                let n = ["input_tokens", "output_tokens", "cache_creation_input_tokens", "cache_read_input_tokens"]
-                    .reduce(0) { $0 + (u[$1] as? Int ?? 0) }
+                let inp = u["input_tokens"] as? Int ?? 0, out = u["output_tokens"] as? Int ?? 0
+                let cw = u["cache_creation_input_tokens"] as? Int ?? 0, cr = u["cache_read_input_tokens"] as? Int ?? 0
+                let n = inp + out + cw + cr
                 guard n > 0 else { continue }
+                let p = ModelPrice.forModel(msg["model"] as? String ?? "")
+                let cost = (Double(inp) * p.input + Double(out) * p.output
+                            + Double(cw) * p.cacheWrite + Double(cr) * p.cacheRead) / 1e6
                 // A mesma resposta aparece em varias linhas; deduplica por mensagem + requisicao.
                 let key = "\(msg["id"] as? String ?? "")|\(d["requestId"] as? String ?? d["uuid"] as? String ?? "")"
-                list.append(Entry(key: key, day: cal.startOfDay(for: date), tokens: n))
+                list.append(Entry(key: key, day: cal.startOfDay(for: date), tokens: n, cost: cost))
             }
         }
         cache[url.path] = Cached(mtime: mtime, size: size, entries: list)
@@ -73,6 +105,15 @@ actor TokenScanner {
 }
 
 enum Tokens {
+    static func usd(_ v: Double) -> String {
+        "US$ " + String(format: v >= 100 ? "%.0f" : "%.2f", v).replacingOccurrences(of: ".", with: ",")
+    }
+    static func cost(_ d: DailyCost, from start: Date) -> Double {
+        d.reduce(0) { $1.key >= start ? $0 + $1.value : $0 }
+    }
+    static func mergeCost(_ all: [DailyCost]) -> DailyCost {
+        all.reduce(into: DailyCost()) { acc, d in d.forEach { acc[$0.key, default: 0] += $0.value } }
+    }
     static func sum(_ d: DailyTokens, from start: Date) -> Int {
         d.reduce(0) { $1.key >= start ? $0 + $1.value : $0 }
     }

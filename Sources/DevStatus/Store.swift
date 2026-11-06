@@ -8,6 +8,7 @@ final class Store: ObservableObject {
     @Published var lastUpdate: Date?
     /// Tokens diarios por assinatura (so contas do Claude Code, via logs locais).
     @Published var tokens: [String: DailyTokens] = [:]
+    @Published var costs: [String: DailyCost] = [:]
     private var timer: Timer?
 
     private var interval: Double = 0
@@ -113,7 +114,8 @@ final class Store: ObservableObject {
         }
         Task {
             let result = await TokenScanner.shared.scan(accounts)
-            tokens = result
+            tokens = result.tokens
+            costs = result.costs
         }
     }
 

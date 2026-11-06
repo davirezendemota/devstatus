@@ -37,6 +37,7 @@ struct Metric: Identifiable {
 struct Usage {
     let plan: String?
     let metrics: [Metric]
+    var apiCostUSD: Double? = nil   // Cursor: gasto do ciclo a precos de API
 }
 
 enum UsageState {

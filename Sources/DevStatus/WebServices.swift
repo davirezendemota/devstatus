@@ -72,6 +72,7 @@ enum WebServices {
 
             let individual = json["individualUsage"] as? [String: Any]
             var metrics: [Metric] = []
+            var cents: Double?
             let reset = Util.date(json["billingCycleEnd"])
             let cycleStart = Util.date(json["billingCycleStart"])
 
@@ -81,6 +82,7 @@ enum WebServices {
                 var pct = total
                 if pct == nil, let u = used, let l = limit, l > 0 { pct = u / l * 100 }
                 var detail: String?
+                cents = Util.num((plan["breakdown"] as? [String: Any])?["total"]) ?? used
                 if let b = plan["breakdown"] as? [String: Any], let inc = Util.num(b["included"]), let t = Util.num(b["total"]) {
                     detail = "\(usd(inc)) do plano + \(usd(max(t - inc, 0))) de bônus"
                 } else if let u = used, let l = limit {
@@ -99,6 +101,7 @@ enum WebServices {
             }
             if let od = individual?["onDemand"] as? [String: Any], let used = Util.num(od["used"]) {
                 let limit = Util.num(od["limit"])
+                cents = (cents ?? 0) + used
                 let pct = (limit ?? 0) > 0 ? used / limit! * 100 : nil
                 let detail = limit.map { "\(usd(used)) de \(usd($0))" } ?? "\(usd(used)) (sem limite)"
                 metrics.append(Metric(title: "On-demand", percent: pct, detail: detail, resetsAt: nil, kind: .onDemand))
@@ -106,7 +109,7 @@ enum WebServices {
             if metrics.isEmpty {
                 return .error("formato inesperado (campos: \(json.keys.sorted().prefix(8).joined(separator: ", ")))")
             }
-            return .ok(Usage(plan: json["membershipType"] as? String, metrics: metrics))
+            return .ok(Usage(plan: json["membershipType"] as? String, metrics: metrics, apiCostUSD: cents.map { $0 / 100 }))
         } catch {
             return .error(error.localizedDescription)
         }

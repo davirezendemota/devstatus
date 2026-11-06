@@ -42,6 +42,8 @@ final class DockModel: ObservableObject {
     @Published private(set) var pinned: [DockApp] = []
     @Published private(set) var others: [DockApp] = []   // abertos e nao fixos
     @Published private(set) var system: [DockApp] = []   // Finder e Ajustes do Sistema
+    /// Largura da tela da barra: acima dela o grupo de apps vira scroll horizontal.
+    @Published var screenWidth: CGFloat = NSScreen.screens.first?.frame.width ?? 1440
     /// % de CPU por app (caminho do .app), 100 = um nucleo.
     @Published private(set) var cpu: [String: Double] = [:]
     private let cpuMeter = ProcessCPU()
@@ -277,12 +279,13 @@ final class DockBarController {
     private func place() {
         guard let p = panel, let screen = NSScreen.screens.first else { return }
         let f = screen.frame
-        if let fit = p.contentView?.fittingSize, fit.width > 0, fit != p.frame.size {
-            p.setContentSize(fit)   // dispara didResize, que chama place() de novo
-            return
-        }
-        let origin = NSPoint(x: (f.midX - p.frame.width / 2).rounded(), y: f.minY + 10)
-        if p.frame.origin != origin { p.setFrameOrigin(origin) }
+        if model.screenWidth != f.width { model.screenWidth = f.width }
+        // Tamanho e posicao juntos: se so o tamanho mudasse, a janela encolheria presa a esquerda.
+        var size = p.frame.size
+        if let fit = p.contentView?.fittingSize, fit.width > 0 { size = fit }
+        let target = NSRect(x: (f.midX - size.width / 2).rounded(), y: f.minY + 10,
+                            width: size.width, height: size.height)
+        if p.frame != target { p.setFrame(target, display: true) }
         if p.frame.height != lastHeight { lastHeight = p.frame.height; windowGuard.clampAll() }
     }
 
@@ -328,31 +331,10 @@ struct DockBarView: View {
     var body: some View {
         // Tres grupos com fundo proprio; entre eles, transparente.
         HStack(alignment: .bottom, spacing: 10) {
-            group {
-                ForEach(model.pinned) { AppIconView(app: $0, model: model, size: s) }
-                ForEach(model.others) { AppIconView(app: $0, model: model, size: s) }
-            }
-            group {
-                ForEach(model.system) { AppIconView(app: $0, model: model, size: s) }
-                TrashIconView(size: s)
-            }
-            if !herdr.agents.isEmpty {
-                group { HerdrQueueView(herdr: herdr, size: s) }
-            }
-            // Assinaturas (aneis de AI) e Stats (Docker, Monitor) em grupos separados.
-            if aiOn {
-                group { statTile(.ai) }
-            }
-            let stats = widgets.filter { $0 != .ai }
-            if !stats.isEmpty {
-                group { ForEach(stats, id: \.self) { statTile($0) } }
-            }
-            if player.hasTrack || youtube.active {
-                group { MediaCardView(player: player, youtube: youtube, size: s) }
-            }
-            if !devices.devices.isEmpty {
-                group { DevicesView(devices: devices, size: s) }
-            }
+            appsGroup
+            HStack(alignment: .bottom, spacing: 10) { rest }
+                .background(GeometryReader { g in Color.clear.preference(key: WidthKey.self, value: g.size.width) })
+                .onPreferenceChange(WidthKey.self) { restWidth = $0 }
         }
         // Botao direito na barra (fora dos icones de app, que tem menu proprio).
         .contextMenu {
@@ -370,6 +352,59 @@ struct DockBarView: View {
             // Soltar um .app na barra fixa no fim.
             loadURLs(providers) { urls in urls.filter { $0.pathExtension == "app" }.forEach { model.pin($0.standardizedFileURL.path) } }
             return true
+        }
+    }
+
+    @State private var restWidth: CGFloat = 0
+    @State private var appsContentWidth: CGFloat = 0
+
+    /// Largura maxima do grupo de apps para a barra caber na tela (10 de margem de cada lado).
+    private var appsMaxWidth: CGFloat { max(s, model.screenWidth - 20 - restWidth - 10 - 16) }
+
+    /// Apps fixos e abertos. Se a barra passaria da largura da tela, o grupo rola na horizontal.
+    private var appsGroup: some View {
+        let icons = HStack(alignment: .bottom, spacing: 8) {
+            ForEach(model.pinned) { AppIconView(app: $0, model: model, size: s) }
+            ForEach(model.others) { AppIconView(app: $0, model: model, size: s) }
+        }
+        .background(GeometryReader { g in Color.clear.preference(key: WidthKey.self, value: g.size.width) })
+        .onPreferenceChange(WidthKey.self) { appsContentWidth = $0 }
+        return group {
+            if appsContentWidth > appsMaxWidth {
+                // A area rolavel avanca sobre a folga do zoom (em cima) e a margem do grupo (embaixo),
+                // para o icone ampliado e a barrinha de app aberto nao serem cortados.
+                ScrollView(.horizontal, showsIndicators: false) {
+                    icons.padding(.top, s * 0.3).padding(.bottom, 5)
+                }
+                .frame(width: appsMaxWidth)
+                .padding(.top, -s * 0.3).padding(.bottom, -5)
+            } else {
+                icons
+            }
+        }
+    }
+
+    @ViewBuilder private var rest: some View {
+        group {
+            ForEach(model.system) { AppIconView(app: $0, model: model, size: s) }
+            TrashIconView(size: s)
+        }
+        if !herdr.agents.isEmpty {
+            group { HerdrQueueView(herdr: herdr, size: s) }
+        }
+        // Assinaturas (aneis de AI) e Stats (Docker, Monitor) em grupos separados.
+        if aiOn {
+            group { statTile(.ai) }
+        }
+        let stats = widgets.filter { $0 != .ai }
+        if !stats.isEmpty {
+            group { ForEach(stats, id: \.self) { statTile($0) } }
+        }
+        if player.hasTrack || youtube.active {
+            group { MediaCardView(player: player, youtube: youtube, size: s) }
+        }
+        if !devices.devices.isEmpty {
+            group { DevicesView(devices: devices, size: s) }
         }
     }
 
@@ -396,6 +431,11 @@ struct DockBarView: View {
             )
     }
 
+}
+
+private struct WidthKey: PreferenceKey {
+    static var defaultValue: CGFloat = 0
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) { value = max(value, nextValue()) }
 }
 
 /// Le URLs de arquivos soltos (drag and drop).

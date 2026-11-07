@@ -53,6 +53,18 @@ O número de cada assinatura (cards, ícone da barra de menu, Dock) é a posiç�
 - **Assinatura**: com `.sign-identity` (certificado Apple Development) a identidade do app é estável e as permissões do macOS persistem; sem ele, ad-hoc, e o macOS pode pedir permissões de novo a cada rebuild.
 - **SwiftPM + `build.sh`**: evita depender de um projeto Xcode.
 
+## Comando de terminal (`devstatus`)
+- Mesmo binário do app: `main.swift` roda o `CLI` quando o primeiro argumento é um subcomando (`status`, `ai`, `docker`, `agent`, `install`, `uninstall`, `help`, `version`); sem argumento (Finder, Spotlight) abre o app.
+- `CLIInstaller` grava `~/.local/bin/devstatus` (Ajustes › Terminal ou `DevStatus.app/Contents/MacOS/DevStatus install`): um script `sh` que chama o binário dentro do `.app` (caminho atual, `/Applications`, `~/Applications`), para o macOS tratar a execução como o DevStatus. Sem sudo.
+- Lê só o que o app já lê (Keychain, logs locais, APIs de uso, `docker` CLI); nada novo sai da máquina. Cores ANSI só com TTY e sem `NO_COLOR`.
+- `devstatus ai` usa o mesmo cache de tokens do app (`~/Library/Caches/local.devstatus/tokens-v1.json`).
+
+### `devstatus agent`
+- Escolha por `Subscription.availability` (Models.swift). Entra o limite mais apertado entre as métricas com percentual, exceto `weekModel` e `onDemand`; `headroom = 100 − %`. Métrica sem reset próprio (Cursor: Auto + Composer) usa o reset do ciclo.
+- `score = headroom + bônus`, com bônus de até 15 pontos proporcional à proximidade do reset dentro da janela da métrica (sessão 5 h, semana 7 d, demais 30 d). Assinatura no limite (`headroom < 1`) fica com score negativo pelas horas até o reset, então a que reseta antes vem primeiro.
+- Imprime o ranking (com o número fixo da assinatura) e faz `execv` do CLI da melhor que tem CLI: `claude` com `CLAUDE_CONFIG_DIR` da conta (removido na conta padrão `~/.claude`) ou `agent`/`cursor-agent` no Cursor. Cookies não têm CLI e só aparecem no ranking. Busca o binário no `PATH` + `~/.local/bin`.
+- `--dry` só mostra o ranking; o resto dos argumentos vai para o CLI (`devstatus agent -c`). Todas no limite: sai com erro dizendo qual reseta antes.
+
 ## Docker
 - `DockerCLI` procura o binário (`/usr/local/bin`, Homebrew, OrbStack, Docker Desktop), porque o app não herda o PATH do shell.
 - Uso: `docker system df --format '{{json .}}'` → linhas `Type/TotalCount/Active/Size/Reclaimable` (Images, Containers, Local Volumes, Build Cache). Tamanhos em texto decimal ("6.226GB (40%)") são convertidos para bytes.

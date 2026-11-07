@@ -11,6 +11,7 @@
 - [ ] Dock: badges de notificação dos apps (via Acessibilidade).
 - [ ] Dock: pastas em pilha.
 - [ ] Dock: posição lateral e ocultar automaticamente.
+- [x] CLI `devstatus` (status, ai, docker) e `devstatus agent`: abre o Claude Code/Cursor na assinatura com mais folga.
 - [ ] Herdr: clique abrir o agent específico (hoje só traz o Herdr para frente).
 
 ## Conhecido

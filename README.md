@@ -37,6 +37,7 @@ A day of AI-assisted development means checking Claude and Cursor limits in two 
 | Activity Monitor for CPU, RAM, temperature | Monitor tab and a 2×2 bar icon |
 | Switch to the terminal to see which agent is done | Herdr agent queue in the Dock, sorted by who needs you |
 | Square Dock icons only | A Dock with wide widgets, Spotify player and battery rings |
+| Guess which subscription still has quota before opening an agent | `devstatus agent` opens Claude Code / Cursor Agent on the one with the most room |
 
 ## One glance. From menu bar to action.
 
@@ -57,11 +58,28 @@ flowchart LR
 3. **Read the tab.** Cards per subscription, Docker totals, system grid.
 4. **Act.** Prune Docker, open the agent that is waiting, add an account — or just close it.
 
+In a terminal, `devstatus agent` skips the glance: it opens Claude Code or Cursor Agent on the subscription with the most room.
+
 ## Built for a working day
 
 ### AI usage
 
 Claude Code accounts are discovered automatically (`~/.claude`, `~/.claude-*`) and read from the Keychain the same way Claude Code does. Cursor comes from `cursor-agent`. Any other Claude or Cursor account can be added by pasting the site cookie. Each subscription has a fixed number (reorderable) and a card with its limits, plan, **tokens this month and week** and a shortcut to the provider usage page. A **day-by-day heatmap**, one row per month, covers the last three months.
+
+### Terminal: `devstatus agent`
+
+With more than one Claude or Cursor plan, `devstatus agent` picks one for you. Each subscription counts by its tightest limit (5-hour session, week or plan); a reset that is close adds up to 15 points, so a plan about to refill wins over one with the same headroom that resets in days. It prints the ranking and replaces itself with the winner's CLI — `claude` with the right `CLAUDE_CONFIG_DIR`, or `agent` for Cursor — in the current terminal and folder.
+
+```text
+❯ devstatus agent
+  1  Claude (you@work.dev)      ███████████░░░░░  34% livre   reseta em 5h23
+  3  Claude (you@side.dev)      ███████████░░░░░  30% livre   reseta em 3d 21h
+  2  Cursor (you@work.dev)      ████████████░░░░  26% livre   reseta em 12d 17h
+
+→ Claude (you@work.dev): 34% livre, reseta em 5h23
+```
+
+Arguments go straight to the CLI (`devstatus agent -c` continues the last session); `--dry` only prints the ranking. When every plan is at its limit, it says which one resets first. The same `devstatus` command also prints the AI and Docker summaries — see [Terminal command](#terminal-command).
 
 ### Docker
 
@@ -92,6 +110,17 @@ The [script](https://devstatus.davirezendemota.com/install.sh) downloads the lat
 The app is ad-hoc signed and not notarized by Apple. A zip downloaded by a browser is quarantined and macOS blocks the first launch; `curl` doesn't quarantine files, so the script avoids that. To install the zip by hand instead, move the app to Applications and run `xattr -dr com.apple.quarantine /Applications/DevStatus.app`.
 
 Releases are signed with a fixed self-signed certificate (`DevStatus Release Signing`, SHA-1 `D34B81470098E31DC94CFDEB255C4F5454430384`). macOS ties permissions (Accessibility, Automation, Keychain) to the signature, so they carry over from one release to the next. Releases signed before that certificate were ad-hoc, so the first update after them asks for permissions once more.
+
+### Terminal command
+
+In **Settings › Terminal** click *Install* (or run `DevStatus.app/Contents/MacOS/DevStatus install`) to get a `devstatus` command in `~/.local/bin`:
+
+| Command | What it does |
+|---|---|
+| `devstatus` | AI + Docker summary, same as the General tab |
+| `devstatus ai` | Every subscription: limits, resets and token usage |
+| `devstatus docker` | Docker storage by type |
+| `devstatus agent` | Ranks subscriptions by free quota (plus how close the reset is) and opens Claude Code / Cursor Agent on the best one. `--dry` only prints the ranking; other args go to the CLI |
 
 ### Build from source
 

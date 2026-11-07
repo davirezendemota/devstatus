@@ -9,6 +9,13 @@ Requisitos: Swift 5.9+ (testado com 6.4), macOS 13+. Sem projeto Xcode e sem dep
 
 Abra sempre com `open` (ou Spotlight). Rodar o binário direto (`DevStatus.app/Contents/MacOS/DevStatus`) faz o macOS checar as permissões do terminal, não as do DevStatus.
 
+## Testar o CLI
+```
+DevStatus.app/Contents/MacOS/DevStatus ai          # ou status, docker, help
+DevStatus.app/Contents/MacOS/DevStatus agent --dry # só o ranking, sem abrir o claude/agent
+```
+Depois de `devstatus install` (ou Ajustes › Terminal) o mesmo vale para `devstatus …`.
+
 ## CI e release
 `.github/workflows/build.yml` roda em `macos-15`. Em push na `main` (job `check`) só valida a compilação: build universal ad-hoc e `lipo`, sem certificado e sem artefato. Quando uma release é publicada (job `release`): gera o app universal com `DEVSTATUS_UNIVERSAL=1 ./build.sh`, assina com o certificado autoassinado das releases (abaixo; falha se a assinatura não sair com ele), confere as arquiteturas com `lipo` e anexa `DevStatus-<tag>-macos-universal.zip` e o `.sha256` à release. Esses dois arquivos são o que o `install.sh` baixa; não remover. Sem artefatos no Actions. PR não dispara. O app não é notarizado: o `install.sh` do site baixa com `curl`, que não põe quarentena (ver README).
 

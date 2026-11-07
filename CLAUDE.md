@@ -9,6 +9,13 @@ App de barra de menu (macOS, Swift/SwiftUI) com 5 abas: **Geral**, **AI** (uso d
 - `DEVSTATUS_UNIVERSAL=1 ./build.sh` — binário universal (arm64 + x86_64); usado pelo CI. O Swift 6.4 com SDK do macOS 27 só gera arm64, então o universal sai do runner do GitHub.
 - CI (`.github/workflows/build.yml`): compila em todo push/PR na `main`; numa release publicada (ou `workflow_dispatch` com a tag) anexa `DevStatus-<tag>-macos-universal.zip` + `.sha256`, assinado ad-hoc.
 
+## Release (sempre que houver mudança para os usuários)
+- A versão fica no `build.sh`: subir `CFBundleShortVersionString` (semver) e `CFBundleVersion` (+1) num commit próprio `chore: bump version to X.Y.Z`.
+- Push na `main` e publicar a release: `gh release create vX.Y.Z --target main --title "DevStatus X.Y.Z" --notes-file …` (notas em inglês: comando de instalação do site + o que mudou, agrupado por área). O CI compila, assina e anexa o zip; o `install.sh` do site (`curl -fsSL https://devstatus.davirezendemota.com/install.sh | bash`) sempre instala a última release.
+- Conferir no fim: run do Build da release verde, assets anexados (`gh release view vX.Y.Z`) e assinatura com `Authority=DevStatus Release Signing`.
+- Ao terminar um conjunto de mudanças no app, lembrar o usuário de lançar a release (sem release, quem instala pelo site continua na versão anterior).
+- **Certificado das releases**: nunca trocar, regerar nem comitar o `.p12` (backup em `~/.config/devstatus-signing/`, senha no Keychain). Trocar o certificado muda o requisito designado e todos os usuários perdem as permissões. Detalhes em `docs/development.md` › Certificado das releases.
+
 ## Estrutura
 - `App.swift` — ícones opcionais de Stats (AI, Docker, Monitor) que abrem focados na aba; `AppDelegate` abre o modal (`NSPanel`) quando o app é aberto pelo Spotlight; `Migration` das preferências do nome antigo.
 - `Views.swift` — `RootView` com barra de abas no topo (`AppTab`: Geral, AI, Docker, Monitor, Ajustes).

@@ -34,20 +34,59 @@ actor TokenScanner {
     static let shared = TokenScanner()
     static let days = 95
 
-    private struct Entry { let key: String; let day: Date; let tokens: Int; let cost: Double }
-    private struct Cached { let mtime: Date; let size: Int; let entries: [Entry] }
+    /// `key` e um hash (FNV-1a) de mensagem + requisicao, so para deduplicar; `day` em segundos desde 1970.
+    private struct Entry: Codable { let key: UInt64; let day: Date; let tokens: Int; let cost: Double }
+    private struct Cached: Codable { let mtime: Date; let size: Int; let entries: [Entry] }
     private var cache: [String: Cached] = [:]
+    private var loaded = false
+
+    /// Cache em disco, compartilhado pelo app e pelo CLI (`devstatus ai`): so reprocessa logs novos ou alterados.
+    private static let cacheURL: URL = {
+        let dir = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)[0]
+            .appendingPathComponent("local.devstatus", isDirectory: true)
+        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        return dir.appendingPathComponent("tokens-v1.json")
+    }()
+    private static let cacheVersion = 1
+
+    private struct DiskCache: Codable { let version: Int; let files: [String: Cached] }
+
+    private func loadCache() {
+        guard !loaded else { return }
+        loaded = true
+        guard let data = try? Data(contentsOf: Self.cacheURL),
+              let disk = try? JSONDecoder().decode(DiskCache.self, from: data),
+              disk.version == Self.cacheVersion else { return }
+        cache = disk.files
+    }
+
+    private func saveCache(keeping used: Set<String>) {
+        // Arquivos que sumiram ou sairam da janela de dias nao precisam ficar.
+        cache = cache.filter { used.contains($0.key) }
+        guard let data = try? JSONEncoder().encode(DiskCache(version: Self.cacheVersion, files: cache)) else { return }
+        try? data.write(to: Self.cacheURL, options: .atomic)
+    }
+
+    private static func hash(_ s: String) -> UInt64 {
+        var h: UInt64 = 0xcbf29ce484222325
+        for b in s.utf8 { h = (h ^ UInt64(b)) &* 0x100000001b3 }
+        return h
+    }
 
     /// Devolve os tokens diarios por conta (chave = id da assinatura).
     func scan(_ accounts: [(id: String, dir: URL)]) -> (tokens: [String: DailyTokens], costs: [String: DailyCost]) {
         let since = Calendar.current.date(byAdding: .day, value: -Self.days, to: Calendar.current.startOfDay(for: Date()))!
+        loadCache()
+        let before = cache
+        var usedFiles = Set<String>()
         var result: [String: DailyTokens] = [:]
         var costs: [String: DailyCost] = [:]
         for acc in accounts {
-            var seen = Set<String>()
+            var seen = Set<UInt64>()
             var daily = DailyTokens()
             var cost = DailyCost()
             for file in files(in: acc.dir.appendingPathComponent("projects"), since: since) {
+                usedFiles.insert(file.path)
                 for e in entries(file) where e.day >= since && seen.insert(e.key).inserted {
                     daily[e.day, default: 0] += e.tokens
                     cost[e.day, default: 0] += e.cost
@@ -56,6 +95,9 @@ actor TokenScanner {
             result[acc.id] = daily
             costs[acc.id] = cost
         }
+        // So grava quando algo mudou (arquivo novo/alterado ou removido).
+        let changed = usedFiles != Set(before.keys) || cache.contains { before[$0.key]?.mtime != $0.value.mtime || before[$0.key]?.size != $0.value.size }
+        if changed { saveCache(keeping: usedFiles) }
         return (result, costs)
     }
 
@@ -95,7 +137,7 @@ actor TokenScanner {
                 let cost = (Double(inp) * p.input + Double(out) * p.output
                             + Double(cw) * p.cacheWrite + Double(cr) * p.cacheRead) / 1e6
                 // A mesma resposta aparece em varias linhas; deduplica por mensagem + requisicao.
-                let key = "\(msg["id"] as? String ?? "")|\(d["requestId"] as? String ?? d["uuid"] as? String ?? "")"
+                let key = Self.hash("\(msg["id"] as? String ?? "")|\(d["requestId"] as? String ?? d["uuid"] as? String ?? "")")
                 list.append(Entry(key: key, day: cal.startOfDay(for: date), tokens: n, cost: cost))
             }
         }

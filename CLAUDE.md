@@ -20,7 +20,7 @@ App de barra de menu (macOS, Swift/SwiftUI) com 5 abas: **Geral**, **AI** (uso d
 - `App.swift` — ícones opcionais de Stats (AI, Docker, Monitor) que abrem focados na aba; `AppDelegate` abre o modal (`NSPanel`) quando o app é aberto pelo Spotlight; `Migration` das preferências do nome antigo.
 - `Views.swift` — `RootView` com barra de abas no topo (`AppTab`: Geral, AI, Docker, Monitor, Ajustes).
 - `AIView.swift` — aba AI: cards (mapa de tokens com uma linha por mês e um quadrado por dia + card numerado por assinatura com atalho para o uso no site).
-- `TokenStats.swift` — tokens diários dos logs locais do Claude Code.
+- `TokenStats.swift` — tokens diários dos logs locais do Claude Code; cache por arquivo (mtime + tamanho) em `~/Library/Caches/local.devstatus/tokens-v1.json`, compartilhado com o CLI (subir `cacheVersion` se mudar o formato).
 - `MenuIcon.swift` — ícones da barra: AI (barra numerada por assinatura, cor da IA), Docker e Monitor (grade 2×2 de ícone + barra).
 - `GeneralView.swift` — resumo de AI + Docker.
 - `DockerView.swift` / `Docker.swift` — `docker system df`, totais e botões de prune com confirmação.

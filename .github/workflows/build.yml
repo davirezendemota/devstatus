@@ -1,44 +1,55 @@
 name: Build
 
-# Compila o app em todo push/PR na main. Numa release publicada (ou rodando a mao com uma tag),
-# gera o DevStatus.app universal, compacta e anexa a release.
+# Push na main: so valida que o app compila (universal, ad-hoc; sem certificado nem artefato).
+# Release publicada: gera o DevStatus.app universal, assina com o certificado das releases e anexa
+# o zip + .sha256 a release (o install.sh do site baixa esses arquivos).
 on:
   push:
     branches: [main]
-  pull_request:
-    branches: [main]
   release:
     types: [published]
-  workflow_dispatch:
-    inputs:
-      tag:
-        description: "Tag da release que recebe o app (ex.: v0.1.0)"
-        required: true
-      ref:
-        description: "Commit, branch ou tag para compilar (padrao: a propria tag)"
-        required: false
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
-  build:
+  check:
+    if: github.event_name == 'push'
     runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Swift version
+        run: swift --version
+
+      - name: Build DevStatus.app (universal, ad-hoc)
+        run: DEVSTATUS_UNIVERSAL=1 ./build.sh
+
+      - name: Check architectures
+        run: |
+          archs="$(lipo -archs DevStatus.app/Contents/MacOS/DevStatus)"
+          echo "Architectures: $archs"
+          [[ "$archs" == *arm64* && "$archs" == *x86_64* ]]
+
+  release:
+    if: github.event_name == 'release'
+    runs-on: macos-15
+    permissions:
+      contents: write
     env:
-      TAG: ${{ github.event.release.tag_name || inputs.tag }}
+      TAG: ${{ github.event.release.tag_name }}
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ inputs.ref || env.TAG || github.sha }}
+          ref: ${{ env.TAG }}
 
       - name: Swift version
         run: swift --version
 
       # Certificado autoassinado fixo (secrets): a assinatura fica igual entre versões e o macOS
-      # mantém Acessibilidade, Automação e Keychain nas atualizações. Fora de PR (PR de fork não tem secrets).
+      # mantém Acessibilidade, Automação e Keychain nas atualizações.
       - name: Import signing certificate
         id: cert
-        if: github.event_name != 'pull_request'
         env:
           P12: ${{ secrets.DEVSTATUS_SIGNING_P12 }}
           P12_PASSWORD: ${{ secrets.DEVSTATUS_SIGNING_P12_PASSWORD }}
@@ -62,12 +73,11 @@ jobs:
 
       - name: Build DevStatus.app (universal)
         env:
-          DEVSTATUS_SIGN_IDENTITY: ${{ github.event_name != 'pull_request' && vars.DEVSTATUS_SIGN_IDENTITY || '' }}
-          DEVSTATUS_REQUIRE_SIGN: ${{ github.event_name != 'pull_request' && '1' || '' }}
+          DEVSTATUS_SIGN_IDENTITY: ${{ vars.DEVSTATUS_SIGN_IDENTITY }}
+          DEVSTATUS_REQUIRE_SIGN: "1"
         run: DEVSTATUS_UNIVERSAL=1 ./build.sh
 
       - name: Check signature
-        if: github.event_name != 'pull_request'
         env:
           IDENTITY: ${{ vars.DEVSTATUS_SIGN_IDENTITY }}
         run: |
@@ -89,21 +99,12 @@ jobs:
 
       - name: Package
         run: |
-          ZIP="DevStatus-${TAG:-dev}-macos-universal.zip"
+          ZIP="DevStatus-${TAG}-macos-universal.zip"
           ditto -c -k --sequesterRsrc --keepParent DevStatus.app "$ZIP"
           shasum -a 256 "$ZIP" > "$ZIP.sha256"
           echo "ZIP=$ZIP" >> "$GITHUB_ENV"
 
       - name: Attach to release
-        if: env.TAG != ''
         env:
           GH_TOKEN: ${{ github.token }}
         run: gh release upload "$TAG" "$ZIP" "$ZIP.sha256" --clobber
-
-      - name: Upload build artifact
-        if: env.TAG == ''
-        uses: actions/upload-artifact@v4
-        with:
-          name: DevStatus-dev-macos-universal
-          path: ${{ env.ZIP }}
-          retention-days: 7

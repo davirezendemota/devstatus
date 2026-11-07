@@ -7,7 +7,7 @@ App de barra de menu (macOS, Swift/SwiftUI) com 5 abas: **Geral**, **AI** (uso d
 - `open DevStatus.app` — executa. Para recarregar após build: `pkill DevStatus; open DevStatus.app`.
 - `swift build` — só compila, sem empacotar.
 - `DEVSTATUS_UNIVERSAL=1 ./build.sh` — binário universal (arm64 + x86_64); usado pelo CI. O Swift 6.4 com SDK do macOS 27 só gera arm64, então o universal sai do runner do GitHub.
-- CI (`.github/workflows/build.yml`): compila em todo push/PR na `main`; numa release publicada (ou `workflow_dispatch` com a tag) anexa `DevStatus-<tag>-macos-universal.zip` + `.sha256`, assinado ad-hoc.
+- CI (`.github/workflows/build.yml`): em push na `main` só valida a compilação (universal, ad-hoc, sem artefato); ao publicar uma release compila universal, assina com o certificado das releases (`DevStatus Release Signing`, secrets do repo; falha se não conseguir) e anexa `DevStatus-<tag>-macos-universal.zip` + `.sha256` à release (o `install.sh` baixa esses arquivos; não remover). Antes de lançar, confira que o último Build de push na `main` passou.
 
 ## Release (sempre que houver mudança para os usuários)
 - A versão fica no `build.sh`: subir `CFBundleShortVersionString` (semver) e `CFBundleVersion` (+1) num commit próprio `chore: bump version to X.Y.Z`.

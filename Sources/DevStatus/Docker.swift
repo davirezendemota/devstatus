@@ -79,22 +79,8 @@ final class DockerStore: ObservableObject {
         refreshing = true
         Task {
             defer { refreshing = false }
-            let r = await DockerCLI.run(["system", "df", "--format", "{{json .}}"], timeout: 30)
-            guard r.code == 0 else {
-                state = .unavailable(DockerCLI.friendly(r))
-                return
-            }
-            let rows: [DockerRow] = r.out.split(separator: "\n").compactMap { line in
-                guard let d = try? JSONSerialization.jsonObject(with: Data(line.utf8)) as? [String: String],
-                      let type = d["Type"] else { return nil }
-                return DockerRow(type: type,
-                                 count: Int(d["TotalCount"] ?? "") ?? 0,
-                                 active: Int(d["Active"] ?? "") ?? 0,
-                                 sizeBytes: DockerCLI.bytes(d["Size"]),
-                                 reclaimableBytes: DockerCLI.bytes(d["Reclaimable"]))
-            }
-            state = .ok(rows)
-            lastUpdate = Date()
+            state = await DockerCLI.usage()
+            if case .ok = state { lastUpdate = Date() }
         }
     }
 
@@ -126,6 +112,22 @@ final class DockerStore: ObservableObject {
 }
 
 enum DockerCLI {
+    /// `docker system df` por tipo (imagens, containers, volumes, build cache).
+    static func usage() async -> DockerState {
+        let r = await run(["system", "df", "--format", "{{json .}}"], timeout: 30)
+        guard r.code == 0 else { return .unavailable(friendly(r)) }
+        let rows: [DockerRow] = r.out.split(separator: "\n").compactMap { line in
+            guard let d = try? JSONSerialization.jsonObject(with: Data(line.utf8)) as? [String: String],
+                  let type = d["Type"] else { return nil }
+            return DockerRow(type: type,
+                             count: Int(d["TotalCount"] ?? "") ?? 0,
+                             active: Int(d["Active"] ?? "") ?? 0,
+                             sizeBytes: bytes(d["Size"]),
+                             reclaimableBytes: bytes(d["Reclaimable"]))
+        }
+        return .ok(rows)
+    }
+
     struct Output { let code: Int32; let out: String; let err: String }
 
     /// O app de barra de menu nao herda o PATH do shell, entao procura o binario.

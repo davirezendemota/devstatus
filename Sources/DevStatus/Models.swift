@@ -148,3 +148,44 @@ extension Subscription {
         return min(max(Date().timeIntervalSince(start) / total, 0), 1)
     }
 }
+
+// MARK: Disponibilidade (devstatus agent)
+
+/// Quanto da assinatura ainda pode ser usado, combinando a folga e a proximidade do reset.
+struct Availability {
+    let headroom: Double        // 0-100: o que sobra na metrica mais apertada
+    let limiting: Metric        // metrica que limita (sessao, semana, plano...)
+    let resetsAt: Date?         // reset dessa metrica
+    let score: Double           // maior = melhor escolha agora
+
+    var exhausted: Bool { headroom < 1 }
+}
+
+extension Subscription {
+    /// Pontuacao: folga (100 - % usado da metrica mais apertada) + ate 15 pontos quando o reset esta perto
+    /// em relacao a janela da metrica (sessao 5h, semana 7d, ciclo ~30d): capacidade que vai ser perdida logo.
+    /// Esgotada (< 1% livre): fica abaixo de todas, e a que reseta antes vem primeiro.
+    /// Metricas por modelo e on-demand nao entram (nao limitam o uso geral).
+    var availability: Availability? {
+        guard case .ok(let u) = state else { return nil }
+        let candidates = u.metrics.filter { $0.percent != nil && $0.kind != .weekModel && $0.kind != .onDemand }
+        guard let limiting = candidates.max(by: { ($0.percent ?? 0) < ($1.percent ?? 0) }),
+              let percent = limiting.percent else { return nil }
+        let headroom = max(0, 100 - percent)
+        // Metrica sem reset proprio (Cursor: Auto + Composer) segue o reset do ciclo do plano.
+        let reset = limiting.resetsAt ?? u.metrics.first { $0.resetsAt != nil }?.resetsAt
+        let secs = reset.map { max(0, $0.timeIntervalSinceNow) }
+        if headroom < 1 {
+            return Availability(headroom: headroom, limiting: limiting, resetsAt: reset,
+                                score: -(secs ?? .greatestFiniteMagnitude) / 3600)
+        }
+        let window: Double
+        switch limiting.kind {
+        case .session: window = 5 * 3600
+        case .week, .weekModel: window = 7 * 86400
+        default: window = 30 * 86400
+        }
+        let bonus = secs.map { 15 * (1 - min($0 / window, 1)) } ?? 0
+        return Availability(headroom: headroom, limiting: limiting, resetsAt: reset, score: headroom + bonus)
+    }
+}

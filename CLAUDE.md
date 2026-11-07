@@ -17,6 +17,8 @@ App de barra de menu (macOS, Swift/SwiftUI) com 5 abas: **Geral**, **AI** (uso d
 - **Certificado das releases**: nunca trocar, regerar nem comitar o `.p12` (backup em `~/.config/devstatus-signing/`, senha no Keychain). Trocar o certificado muda o requisito designado e todos os usuários perdem as permissões. Detalhes em `docs/development.md` › Certificado das releases.
 
 ## Estrutura
+- `main.swift` — com subcomando (`ai`, `agent`…) roda o CLI; sem, abre o app (`DevStatusApp.main()`).
+- `CLI.swift` — comando `devstatus` (status, ai, docker, agent, install): o mesmo binário em modo terminal; `CLIInstaller` grava o wrapper em `~/.local/bin/devstatus` (botão em Ajustes › Terminal). `agent` escolhe a assinatura por `Subscription.availability` (Models.swift: folga + proximidade do reset) e faz `exec` do `claude`/`agent`.
 - `App.swift` — ícones opcionais de Stats (AI, Docker, Monitor) que abrem focados na aba; `AppDelegate` abre o modal (`NSPanel`) quando o app é aberto pelo Spotlight; `Migration` das preferências do nome antigo.
 - `Views.swift` — `RootView` com barra de abas no topo (`AppTab`: Geral, AI, Docker, Monitor, Ajustes).
 - `AIView.swift` — aba AI: cards (mapa de tokens com uma linha por mês e um quadrado por dia + card numerado por assinatura com atalho para o uso no site).

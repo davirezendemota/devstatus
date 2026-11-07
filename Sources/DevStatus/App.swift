@@ -1,6 +1,6 @@
 import SwiftUI
 
-@main
+
 struct DevStatusApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var app
     @AppStorage(StatKey.ai) private var statAI = true

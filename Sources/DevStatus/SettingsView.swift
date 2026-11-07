@@ -62,6 +62,8 @@ struct SettingsView: View {
     @State private var axTrusted = WindowGuard.isTrusted
     @State private var launchAtLogin = SMAppService.mainApp.status == .enabled
     @State private var loginMessage: String?
+    @State private var cliInstalled = CLIInstaller.isInstalled
+    @State private var cliMessage: String?
 
     var body: some View {
         ScrollView {
@@ -123,6 +125,29 @@ struct SettingsView: View {
                     if !statAI && !statDocker && !statMonitor {
                         Text("Sem ícones na barra. Abra o DevStatus pelo Spotlight para ver o app.")
                             .font(.caption).foregroundStyle(.orange)
+                    }
+                }
+
+                Divider()
+
+                group("Terminal") {
+                    HStack {
+                        Label("Comando devstatus", systemImage: "terminal")
+                        Spacer()
+                        Button(cliInstalled ? "Remover" : "Instalar") {
+                            let r = cliInstalled ? CLIInstaller.uninstall() : CLIInstaller.install()
+                            switch r {
+                            case .success(let m): cliMessage = m
+                            case .failure(let e): cliMessage = e.message
+                            }
+                            cliInstalled = CLIInstaller.isInstalled
+                        }
+                    }
+                    Text("Instala o comando em ~/.local/bin. Use devstatus (resumo), devstatus ai (uso das assinaturas) e devstatus agent (abre o Claude Code/Cursor na assinatura com mais folga).")
+                        .font(.caption2).foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                    if let cliMessage {
+                        Text(cliMessage).font(.caption2).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
                     }
                 }
 

@@ -68,7 +68,7 @@ Claude Code accounts are discovered automatically (`~/.claude`, `~/.claude-*`) a
 
 ### Terminal: `devstatus agent`
 
-With more than one Claude or Cursor plan, `devstatus agent` picks one for you. Each subscription counts by its tightest limit (5-hour session, week or plan); a reset that is close adds up to 15 points, so a plan about to refill wins over one with the same headroom that resets in days. It prints the ranking and replaces itself with the winner's CLI — `claude` with the right `CLAUDE_CONFIG_DIR`, or `agent` for Cursor — in the current terminal and folder.
+With more than one Claude or Cursor plan, `devstatus agent` picks one for you. It works as "use it or lose it": each subscription's headroom on its tightest limit (5-hour session, week or plan) is divided by the hours until its long limit resets (week for Claude, billing cycle for Cursor), so 24% left that resets in 2 hours wins over 58% that resets in 3 days. Plans with less than 10% left go last. It prints the ranking and replaces itself with the winner's CLI — `claude` with the right `CLAUDE_CONFIG_DIR`, or `agent` for Cursor — in the current terminal and folder.
 
 ```text
 ❯ devstatus agent

@@ -162,9 +162,14 @@ struct Availability {
 }
 
 extension Subscription {
-    /// Pontuacao: folga (100 - % usado da metrica mais apertada) + ate 15 pontos quando o reset esta perto
-    /// em relacao a janela da metrica (sessao 5h, semana 7d, ciclo ~30d): capacidade que vai ser perdida logo.
-    /// Esgotada (< 1% livre): fica abaixo de todas, e a que reseta antes vem primeiro.
+    /// Folga minima para a assinatura entrar na disputa principal: abaixo disso ela trava logo no meio do uso.
+    static let minHeadroom = 10.0
+
+    /// "Usa ou perde": a folga atual (100 - % usado da metrica mais apertada) dividida pelas horas ate o reset
+    /// do limite longo (Claude: semana; Cursor: ciclo do plano). Quanto mais capacidade vai se perder por hora
+    /// ate o reset, maior a pontuacao: 24% livres resetando em 1h30 ganham de 58% resetando em 3 dias.
+    /// Folga abaixo de `minHeadroom` fica depois das demais (ordenada pela folga); esgotada (< 1% livre)
+    /// fica abaixo de todas, e a que reseta antes vem primeiro.
     /// Metricas por modelo e on-demand nao entram (nao limitam o uso geral).
     var availability: Availability? {
         guard case .ok(let u) = state else { return nil }
@@ -174,18 +179,19 @@ extension Subscription {
         let headroom = max(0, 100 - percent)
         // Metrica sem reset proprio (Cursor: Auto + Composer) segue o reset do ciclo do plano.
         let reset = limiting.resetsAt ?? u.metrics.first { $0.resetsAt != nil }?.resetsAt
-        let secs = reset.map { max(0, $0.timeIntervalSinceNow) }
         if headroom < 1 {
+            let secs = reset.map { max(0, $0.timeIntervalSinceNow) }
             return Availability(headroom: headroom, limiting: limiting, resetsAt: reset,
                                 score: -(secs ?? .greatestFiniteMagnitude) / 3600)
         }
-        let window: Double
-        switch limiting.kind {
-        case .session: window = 5 * 3600
-        case .week, .weekModel: window = 7 * 86400
-        default: window = 30 * 86400
+        if headroom < Self.minHeadroom {
+            return Availability(headroom: headroom, limiting: limiting, resetsAt: reset, score: headroom)
         }
-        let bonus = secs.map { 15 * (1 - min($0 / window, 1)) } ?? 0
-        return Availability(headroom: headroom, limiting: limiting, resetsAt: reset, score: headroom + bonus)
+        // Reset do limite longo: e nele que a folga que sobrar se perde.
+        let budget = candidates.first { $0.kind == .week && $0.resetsAt != nil }
+            ?? candidates.first { $0.kind == .plan && $0.resetsAt != nil }
+        let budgetReset = budget?.resetsAt ?? reset
+        let hours = budgetReset.map { max($0.timeIntervalSinceNow / 3600, 1) } ?? 30 * 24
+        return Availability(headroom: headroom, limiting: limiting, resetsAt: reset, score: 1000 + headroom / hours)
     }
 }

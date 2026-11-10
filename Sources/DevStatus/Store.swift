@@ -133,18 +133,20 @@ extension Store {
         UserDefaults.standard.set(subs.map(\.id), forKey: SubscriptionLoader.orderKey)
     }
 
-    /// Assinaturas da mais disponivel para a menos (menor % de uso primeiro; sem dado por ultimo).
+    /// Assinaturas da melhor para a pior escolha agora, na mesma ordem do `devstatus agent`
+    /// (`Subscription.availability`: "usa ou perde"; sem dado por ultimo).
     /// `number` e o identificador fixo (posicao na lista, igual aos cards da aba AI) e nao muda com a ordem.
     var subsByAvailability: [(number: Int, sub: Subscription)] {
-        subs.enumerated().map { (number: $0.offset + 1, sub: $0.element) }
+        subs.enumerated().map { (number: $0.offset + 1, sub: $0.element, score: $0.element.availability?.score) }
             .sorted { a, b in
-                switch (a.sub.worstPercent, b.sub.worstPercent) {
-                case let (x?, y?): return x != y ? x < y : a.number < b.number
+                switch (a.score, b.score) {
+                case let (x?, y?): return x != y ? x > y : a.number < b.number
                 case (_?, nil): return true
                 case (nil, _?): return false
                 default: return a.number < b.number
                 }
             }
+            .map { (number: $0.number, sub: $0.sub) }
     }
 }
 

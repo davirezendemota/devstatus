@@ -1,5 +1,6 @@
 import SwiftUI
 import AppKit
+import ApplicationServices
 import Combine
 import UniformTypeIdentifiers
 
@@ -200,6 +201,9 @@ final class DockBarController {
     private var wakeObserver: NSObjectProtocol?
     private var screenSignature = ""
     private var reassertWork: DispatchWorkItem?
+    private var fullscreenObservers: [NSObjectProtocol] = []
+    private var hiddenForFullscreen = false
+    private var fullscreenWork: DispatchWorkItem?
 
     private static func currentScreens() -> String {
         NSScreen.screens.map { "\($0.deviceDescription[NSDeviceDescriptionKey("NSScreenNumber")] ?? "")@\($0.frame)" }
@@ -233,10 +237,13 @@ final class DockBarController {
             show()
             NativeDock.hide()
             windowGuard.start()
-            model.setSampling(true)
+            setFullscreenObservers(true)
+            scheduleFullscreenCheck()
             herdr.setPolling(true)
             devices.setPolling(true)
         } else {
+            setFullscreenObservers(false)
+            hiddenForFullscreen = false
             panel?.orderOut(nil)
             windowGuard.stop()
             model.setSampling(false)
@@ -270,10 +277,93 @@ final class DockBarController {
             panel = p
         }
         place()
-        panel?.orderFrontRegardless()
+        updateBarForFullscreen()
     }
 
     private var resizeObserver: NSObjectProtocol?
+
+    private func setFullscreenObservers(_ on: Bool) {
+        guard on else {
+            fullscreenWork?.cancel(); fullscreenWork = nil
+            fullscreenObservers.forEach { NSWorkspace.shared.notificationCenter.removeObserver($0) }
+            fullscreenObservers.removeAll()
+            return
+        }
+        guard fullscreenObservers.isEmpty else { return }
+        let nc = NSWorkspace.shared.notificationCenter
+        for name in [NSWorkspace.didActivateApplicationNotification, NSWorkspace.activeSpaceDidChangeNotification] {
+            fullscreenObservers.append(nc.addObserver(forName: name, object: nil, queue: .main) { [weak self] _ in
+                Task { @MainActor in self?.scheduleFullscreenCheck() }
+            })
+        }
+    }
+
+    private func scheduleFullscreenCheck() {
+        fullscreenWork?.cancel()
+        let work = DispatchWorkItem { [weak self] in self?.updateBarForFullscreen() }
+        fullscreenWork = work
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.2, execute: work)
+    }
+
+    private func updateBarForFullscreen() {
+        guard DockBar.enabled, let panel else { return }
+        let fullscreen = frontAppIsFullScreen()
+        if fullscreen {
+            if panel.isVisible {
+                hiddenForFullscreen = true
+                panel.orderOut(nil)
+                model.setSampling(false)
+            }
+        } else {
+            let reveal = hiddenForFullscreen || !panel.isVisible
+            hiddenForFullscreen = false
+            if reveal {
+                place()
+                panel.orderFrontRegardless()
+                model.setSampling(true)
+            }
+        }
+    }
+
+    /// Igual ao WindowGuard: janela em foco ou principal do app da frente.
+    private func frontAppIsFullScreen() -> Bool {
+        guard let app = NSWorkspace.shared.frontmostApplication,
+              app.activationPolicy == .regular,
+              app.processIdentifier != ProcessInfo.processInfo.processIdentifier else { return false }
+        let axApp = AXUIElementCreateApplication(app.processIdentifier)
+        if let w = axWindow(axApp, kAXFocusedWindowAttribute as CFString), axBool(w, "AXFullScreen") == true { return true }
+        if let w = axWindow(axApp, kAXMainWindowAttribute as CFString), axBool(w, "AXFullScreen") == true { return true }
+        if AXIsProcessTrusted() { return false }
+        return cgAppFullScreen(pid: app.processIdentifier)
+    }
+
+    private func axWindow(_ app: AXUIElement, _ attr: CFString) -> AXUIElement? {
+        var v: CFTypeRef?
+        guard AXUIElementCopyAttributeValue(app, attr, &v) == .success else { return nil }
+        return (v as! AXUIElement?)
+    }
+
+    private func axBool(_ el: AXUIElement, _ name: String) -> Bool? {
+        var v: CFTypeRef?
+        guard AXUIElementCopyAttributeValue(el, name as CFString, &v) == .success else { return nil }
+        return v as? Bool
+    }
+
+    /// Sem Acessibilidade: janela do tamanho da tela principal.
+    private func cgAppFullScreen(pid: pid_t) -> Bool {
+        guard let screen = NSScreen.screens.first else { return false }
+        let target = screen.frame.size
+        let opts: CGWindowListOption = [.optionOnScreenOnly, .excludeDesktopElements]
+        guard let list = CGWindowListCopyWindowInfo(opts, kCGNullWindowID) as? [[String: Any]] else { return false }
+        for info in list {
+            guard let owner = info[kCGWindowOwnerPID as String] as? pid_t, owner == pid,
+                  let layer = info[kCGWindowLayer as String] as? Int, layer == 0,
+                  let b = info[kCGWindowBounds as String] as? [String: Any],
+                  let w = b["Width"] as? CGFloat, let h = b["Height"] as? CGFloat else { continue }
+            if w >= target.width - 2, h >= target.height - 2 { return true }
+        }
+        return false
+    }
 
     /// Centraliza na base da tela principal (a da barra de menu), mantendo o tamanho atual da janela.
     private func place() {

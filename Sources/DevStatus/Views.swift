@@ -118,4 +118,6 @@ struct MetricView: View {
 extension Notification.Name {
     /// Pede ao modal (RootView sem foco fixo) para mostrar uma aba.
     static let devStatusOpenTab = Notification.Name("devStatusOpenTab")
+    /// Stats/Dock mudaram no mesmo processo (`didChangeNotification` nao cobre isso).
+    static let devStatusPrefsChanged = Notification.Name("devStatusPrefsChanged")
 }

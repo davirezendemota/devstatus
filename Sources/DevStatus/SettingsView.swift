@@ -162,6 +162,7 @@ struct SettingsView: View {
             launchAtLogin = SMAppService.mainApp.status == .enabled
             axTrusted = WindowGuard.isTrusted
         }
+        .onChange(of: dockReplace) { _ in NotificationCenter.default.post(name: .devStatusPrefsChanged, object: nil) }
     }
 
     private func setLaunchAtLogin(_ on: Bool) {
@@ -241,5 +242,10 @@ struct StatRow: View {
             }
             Toggle(stat.rawValue, isOn: $isOn).labelsHidden().help("Mostrar na barra de menu")
         }
+        .onChange(of: dock) { _ in NotificationCenter.default.post(name: .devStatusPrefsChanged, object: nil) }
+        .onChange(of: isOn) { _ in NotificationCenter.default.post(name: .devStatusPrefsChanged, object: nil) }
+        .onChange(of: interval) { _ in NotificationCenter.default.post(name: .devStatusPrefsChanged, object: nil) }
+        .onChange(of: vertical) { _ in NotificationCenter.default.post(name: .devStatusPrefsChanged, object: nil) }
+        .onChange(of: width) { _ in NotificationCenter.default.post(name: .devStatusPrefsChanged, object: nil) }
     }
 }

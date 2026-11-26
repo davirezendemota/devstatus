@@ -96,9 +96,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
         // O icone de Monitor precisa de leituras mesmo com a aba fechada.
         syncMonitor()
-        NotificationCenter.default.addObserver(forName: UserDefaults.didChangeNotification, object: nil, queue: .main) { [weak self] _ in
-            Task { @MainActor in self?.syncMonitor() }
-        }
+        let sync = { [weak self] in Task { @MainActor in self?.syncMonitor() } }
+        NotificationCenter.default.addObserver(forName: UserDefaults.didChangeNotification, object: nil, queue: .main) { _ in sync() }
+        NotificationCenter.default.addObserver(forName: .devStatusPrefsChanged, object: nil, queue: .main) { _ in sync() }
 
         // Ao iniciar junto com o Mac, fica so nos icones da barra.
         let event = NSAppleEventManager.shared().currentAppleEvent

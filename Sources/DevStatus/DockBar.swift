@@ -300,7 +300,13 @@ final class DockBarController {
 
     private func scheduleFullscreenCheck() {
         fullscreenWork?.cancel()
-        let work = DispatchWorkItem { [weak self] in self?.updateBarForFullscreen() }
+        let work = DispatchWorkItem { [weak self] in
+            guard let self else { return }
+            self.updateBarForFullscreen()
+            // Apos trocar de espaco o foco pode demorar; revalida se a barra ainda estiver escondida.
+            guard self.hiddenForFullscreen else { return }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in self?.updateBarForFullscreen() }
+        }
         fullscreenWork = work
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.2, execute: work)
     }
@@ -325,13 +331,15 @@ final class DockBarController {
         }
     }
 
-    /// Igual ao WindowGuard: janela em foco ou principal do app da frente.
+    /// Janela em foco do app da frente; `main` pode seguir em fullscreen em outro espaco de trabalho.
     private func frontAppIsFullScreen() -> Bool {
         guard let app = NSWorkspace.shared.frontmostApplication,
               app.activationPolicy == .regular,
               app.processIdentifier != ProcessInfo.processInfo.processIdentifier else { return false }
         let axApp = AXUIElementCreateApplication(app.processIdentifier)
-        if let w = axWindow(axApp, kAXFocusedWindowAttribute as CFString), axBool(w, "AXFullScreen") == true { return true }
+        if let w = axWindow(axApp, kAXFocusedWindowAttribute as CFString) {
+            return axBool(w, "AXFullScreen") == true
+        }
         if let w = axWindow(axApp, kAXMainWindowAttribute as CFString), axBool(w, "AXFullScreen") == true { return true }
         if AXIsProcessTrusted() { return false }
         return cgAppFullScreen(pid: app.processIdentifier)
